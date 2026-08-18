@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const userRoutes = require('./routes/userRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 const app = express();
 
@@ -17,12 +18,11 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-// Webhook AVANT express.json() global, car il a besoin du body brut
 app.use('/webhooks', webhookRoutes);
 
-// Le reste des routes utilise le JSON parsé normalement
 app.use(express.json());
 app.use('/api/user', userRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 const PORT = process.env.PORT || 3000;
 
