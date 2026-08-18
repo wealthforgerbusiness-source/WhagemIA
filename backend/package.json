@@ -1,0 +1,25 @@
+{
+  "name": "whagemia-backend",
+  "version": "1.0.0",
+  "description": "WhagemIA - Agent IA WhatsApp multi-utilisateur",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.3.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "@google/generative-ai": "^0.17.1",
+    "qrcode": "^1.5.4",
+    "nodemailer": "^6.9.14",
+    "node-cron": "^3.0.3",
+    "pino": "^9.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
