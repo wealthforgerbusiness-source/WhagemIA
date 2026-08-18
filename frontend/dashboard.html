@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Dashboard — WhagemIA</title>
+
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#25D366" />
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+  <link rel="icon" href="/assets/icons/favicon.ico" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    body { padding-bottom: 40px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar-logo { display: flex; align-items: center; gap: 10px; }
+    .topbar-logo img { width: 32px; height: 32px; }
+    .topbar-logo span { font-weight: 700; font-size: 16px; }
+
+    .logout-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      font-size: 14px;
+    }
+
+    .content { max-width: 480px; margin: 0 auto; padding: 20px; }
+
+    /* État: pas encore connecté à WhatsApp */
+    .setup-card {
+      text-align: center;
+      padding: 32px 24px;
+    }
+
+    .setup-card img.illustration {
+      width: 140px;
+      margin-bottom: 20px;
+    }
+
+    textarea#business-prompt {
+      width: 100%;
+      min-height: 90px;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--color-border);
+      font-family: var(--font-main);
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 16px;
+    }
+
+    textarea#business-prompt:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+    }
+
+    #qr-container {
+      display: none;
+      margin-top: 20px;
+    }
+
+    #qr-container img {
+      width: 220px;
+      height: 220px;
+      border-radius: var(--radius-md);
+      border: 8px solid white;
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* État: connecté, dashboard actif */
+    .status-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .status-left { display: flex; align-items: center; gap: 12px; }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-success);
+      box-shadow: 0 0 0 4px rgba(37,211,102,0.2);
+    }
+
+    .status-dot.off {
+      background: var(--color-text-muted);
+      box-shadow: 0 0 0 4px rgba(107,114,128,0.15);
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 52px;
+      height: 30px;
+      border-radius: 999px;
+      background: var(--color-border);
+      cursor: pointer;
+      transition: background var(--transition-medium);
+      border: none;
+    }
+
+    .toggle.active { background: var(--color-primary); }
+
+    .toggle-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--transition-medium);
+    }
+
+    .toggle.active .toggle-knob { transform: translateX(22px); }
+
+    /* Barres de progression tokens */
+    .token-block { margin-bottom: 20px; }
+
+    .token-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--color-text-muted);
+      margin-bottom: 6px;
+    }
+
+    .progress-bar {
+      height: 10px;
+      background: var(--color-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+
+    .progress-fill.warning { background: var(--color-warning); }
+    .progress-fill.danger { background: var(--color-danger); }
+
+    .plan-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(91,33,182,0.08);
+      color: var(--color-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .upgrade-btn {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .hidden { display: none !important; }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      margin: 40px auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-logo">
+      <img src="/assets/logo.png" alt="WhagemIA" />
+      <span>WhagemIA</span>
+    </div>
+    <button class="logout-icon" id="logout-btn">Déconnexion</button>
+  </div>
+
+  <div class="content">
+
+    <div id="loading-state" class="spinner"></div>
+
+    <!-- État 1 : pas encore connecté à WhatsApp -->
+    <div id="setup-state" class="card setup-card fade-in hidden">
+      <img src="/assets/illustration-qr.png" alt="" class="illustration" />
+      <h2 style="margin-bottom: 8px;">Connectez votre WhatsApp</h2>
+      <p class="text-muted" style="margin-bottom: 20px;">
+        Décrivez votre entreprise, l'IA répondra à vos clients à sa place.
+      </p>
+
+      <textarea id="business-prompt" placeholder="Ex : Je vends des vêtements pour femmes à Kinshasa. Livraison sous 48h. Paiement Mobile Money uniquement."></textarea>
+
+      <button id="start-connection-btn" class="btn btn-primary" style="width: 100%;">
+        Générer le QR code
+      </button>
+
+      <div id="qr-container">
+        <img id="qr-image" src="" alt="QR Code WhatsApp" />
+        <p class="text-muted" style="margin-top: 14px;">
+          Ouvrez WhatsApp → Paramètres → Appareils liés → Scanner le QR code
+        </p>
+      </div>
+    </div>
+
+    <!-- État 2 : connecté, dashboard actif -->
+    <div id="dashboard-state" class="fade-in hidden">
+
+      <div class="card status-card">
+        <div class="status-left">
+          <div id="status-dot" class="status-dot"></div>
+          <div>
+            <div id="status-text" style="font-weight: 600; font-size: 15px;">Bot actif</div>
+            <div class="text-muted" style="font-size: 13px;">WhatsApp connecté</div>
+          </div>
+        </div>
+        <button id="bot-toggle" class="toggle active">
+          <div class="toggle-knob"></div>
+        </button>
+      </div>
+
+      <div class="card">
+        <span id="plan-badge" class="plan-badge">⚡ Offre Start</span>
+
+        <div class="token-block">
+          <div class="token-label">
+            <span>Tokens entrée</span>
+            <span id="tokens-in-label">0 / 0</span>
+          </div>
+          <div class="progress-bar">
+            <div id="tokens-in-fill"
