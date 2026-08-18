@@ -43,7 +43,6 @@
 
     .content { max-width: 480px; margin: 0 auto; padding: 20px; }
 
-    /* État: pas encore connecté à WhatsApp */
     .setup-card {
       text-align: center;
       padding: 32px 24px;
@@ -84,7 +83,6 @@
       box-shadow: var(--shadow-lg);
     }
 
-    /* État: connecté, dashboard actif */
     .status-card {
       display: flex;
       align-items: center;
@@ -107,7 +105,6 @@
       box-shadow: 0 0 0 4px rgba(107,114,128,0.15);
     }
 
-    /* Toggle switch */
     .toggle {
       position: relative;
       width: 52px;
@@ -135,7 +132,6 @@
 
     .toggle.active .toggle-knob { transform: translateX(22px); }
 
-    /* Barres de progression tokens */
     .token-block { margin-bottom: 20px; }
 
     .token-label {
@@ -207,7 +203,6 @@
 
     <div id="loading-state" class="spinner"></div>
 
-    <!-- État 1 : pas encore connecté à WhatsApp -->
     <div id="setup-state" class="card setup-card fade-in hidden">
       <img src="/assets/illustration-qr.png" alt="" class="illustration" />
       <h2 style="margin-bottom: 8px;">Connectez votre WhatsApp</h2>
@@ -229,7 +224,6 @@
       </div>
     </div>
 
-    <!-- État 2 : connecté, dashboard actif -->
     <div id="dashboard-state" class="fade-in hidden">
 
       <div class="card status-card">
@@ -254,4 +248,214 @@
             <span id="tokens-in-label">0 / 0</span>
           </div>
           <div class="progress-bar">
-            <div id="tokens-in-fill"
+            <div id="tokens-in-fill" class="progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="token-block">
+          <div class="token-label">
+            <span>Tokens sortie</span>
+            <span id="tokens-out-label">0 / 0</span>
+          </div>
+          <div class="progress-bar">
+            <div id="tokens-out-fill" class="progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <a href="https://gzbzlzip.mychariow.store/prd_y8bcttrq" id="upgrade-link" class="btn btn-primary upgrade-btn">
+          Renouveler / Changer d'offre
+        </a>
+      </div>
+
+      <div id="expired-banner" class="card hidden" style="margin-top: 16px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);">
+        <p style="color: var(--color-danger); font-weight: 600; margin-bottom: 8px;">
+          ⚠️ Abonnement expiré
+        </p>
+        <p class="text-muted" style="margin-bottom: 14px;">
+          Votre bot est désactivé. Renouvelez votre abonnement pour ne pas perdre votre session WhatsApp.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { auth } from '/js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    const API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000'
+      : 'https://whagemia.onrender.com';
+
+    const loadingState = document.getElementById('loading-state');
+    const setupState = document.getElementById('setup-state');
+    const dashboardState = document.getElementById('dashboard-state');
+
+    let currentUser = null;
+    let idToken = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/index.html';
+        return;
+      }
+      currentUser = user;
+      idToken = await user.getIdToken();
+      loadDashboard();
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = '/index.html';
+    });
+
+    async function apiCall(endpoint, options = {}) {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+          ...(options.headers || {}),
+        },
+      });
+      return res.json();
+    }
+
+    async function loadDashboard() {
+      try {
+        const data = await apiCall('/api/user/me');
+
+        loadingState.classList.add('hidden');
+
+        if (!data.session || !data.session.connected) {
+          setupState.classList.remove('hidden');
+          setupQrFlow();
+        } else {
+          dashboardState.classList.remove('hidden');
+          renderDashboard(data);
+        }
+      } catch (error) {
+        console.error('Erreur chargement dashboard:', error);
+        loadingState.classList.add('hidden');
+        setupState.classList.remove('hidden');
+        setupQrFlow();
+      }
+    }
+
+    function renderDashboard(data) {
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const botToggle = document.getElementById('bot-toggle');
+      const expiredBanner = document.getElementById('expired-banner');
+      const planBadge = document.getElementById('plan-badge');
+
+      const planNames = { trial: 'Essai gratuit', start: 'Offre Start', moyen: 'Offre Moyen', premium: 'Offre Premium' };
+      planBadge.textContent = `⚡ ${planNames[data.plan] || data.plan}`;
+
+      if (data.status === 'expired') {
+        expiredBanner.classList.remove('hidden');
+        statusDot.classList.add('off');
+        statusText.textContent = 'Bot désactivé';
+        botToggle.classList.remove('active');
+      } else if (data.botEnabled) {
+        statusDot.classList.remove('off');
+        statusText.textContent = 'Bot actif';
+        botToggle.classList.add('active');
+      } else {
+        statusDot.classList.add('off');
+        statusText.textContent = 'Bot désactivé';
+        botToggle.classList.remove('active');
+      }
+
+      updateProgressBar('tokens-in', data.tokensInUsed, data.tokensInLimit);
+      updateProgressBar('tokens-out', data.tokensOutUsed, data.tokensOutLimit);
+
+      botToggle.onclick = async () => {
+        if (data.status === 'expired') return;
+        await apiCall('/api/user/toggle-bot', { method: 'POST' });
+        loadDashboard();
+      };
+    }
+
+    function updateProgressBar(prefix, used, limit) {
+      const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+      const fill = document.getElementById(`${prefix}-fill`);
+      const label = document.getElementById(`${prefix}-label`);
+
+      fill.style.width = `${percent}%`;
+      label.textContent = `${formatNumber(used)} / ${formatNumber(limit)}`;
+
+      fill.classList.remove('warning', 'danger');
+      if (percent >= 90) fill.classList.add('danger');
+      else if (percent >= 70) fill.classList.add('warning');
+    }
+
+    function formatNumber(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
+      return n;
+    }
+
+    function setupQrFlow() {
+      const btn = document.getElementById('start-connection-btn');
+      const promptInput = document.getElementById('business-prompt');
+      const qrContainer = document.getElementById('qr-container');
+      const qrImage = document.getElementById('qr-image');
+
+      btn.addEventListener('click', async () => {
+        const businessPrompt = promptInput.value.trim();
+
+        if (businessPrompt.length < 10) {
+          alert('Décrivez votre entreprise en quelques mots (minimum 10 caractères).');
+          return;
+        }
+
+        btn.textContent = 'Génération...';
+        btn.disabled = true;
+
+        try {
+          const data = await apiCall('/api/whatsapp/connect', {
+            method: 'POST',
+            body: JSON.stringify({ businessPrompt }),
+          });
+
+          if (data.qrCode) {
+            qrImage.src = data.qrCode;
+            qrContainer.style.display = 'block';
+            btn.textContent = 'Nouveau QR code';
+            btn.disabled = false;
+
+            pollConnectionStatus();
+          } else {
+            alert(data.error || 'Erreur lors de la génération du QR code');
+            btn.textContent = 'Générer le QR code';
+            btn.disabled = false;
+          }
+        } catch (error) {
+          console.error(error);
+          btn.textContent = 'Générer le QR code';
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function pollConnectionStatus() {
+      const interval = setInterval(async () => {
+        const data = await apiCall('/api/user/me');
+        if (data.session && data.session.connected) {
+          clearInterval(interval);
+          window.location.reload();
+        }
+      }, 3000);
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
+
+</body>
+</html>
