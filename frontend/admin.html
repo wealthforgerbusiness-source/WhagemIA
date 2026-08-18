@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Admin — WhagemIA</title>
+
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#5B21B6" />
+  <link rel="icon" href="/assets/icons/favicon.ico" />
+
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    body { padding-bottom: 40px; background: var(--color-bg); }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--color-bg-dark);
+      color: white;
+    }
+
+    .topbar-logo { display: flex; align-items: center; gap: 10px; }
+    .topbar-logo img { width: 32px; height: 32px; }
+    .topbar-logo span { font-weight: 700; font-size: 16px; }
+
+    .logout-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+    }
+
+    .content { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .stat-card {
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--color-secondary);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      margin-top: 4px;
+    }
+
+    .stat-card.revenue .stat-value { color: var(--color-primary-dark); }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 24px 0 12px;
+    }
+
+    .plans-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .plan-pill {
+      flex: 1;
+      min-width: 100px;
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .plan-pill .count { font-size: 20px; font-weight: 700; }
+    .plan-pill .name { font-size: 12px; color: var(--color-text-muted); }
+
+    .users-table {
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      background: var(--color-bg);
+      color: var(--color-text-muted);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .row-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.active { background: var(--color-success); }
+    .dot.expired { background: var(--color-danger); }
+
+    .table-wrap { overflow-x: auto; }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-secondary);
+      border-radius: 50%;
+      margin: 60px auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--color-text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-logo">
+      <img src="/assets/logo.png" alt="WhagemIA" />
+      <span>Admin — WhagemIA</span>
+    </div>
+    <button class="logout-icon" id="logout-btn">Déconnexion</button>
+  </div>
+
+  <div class="content">
+
+    <div id="loading-state" class="spinner"></div>
+
+    <div id="admin-content" class="hidden">
+
+      <div class="stats-grid">
+        <div class="stat-card revenue">
+          <div class="stat-value" id="stat-revenue">$0</div>
+          <div class="stat-label">Revenu mensuel estimé</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">Utilisateurs totaux</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-active">0</div>
+          <div class="stat-label">Abonnements actifs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-bots">0</div>
+          <div class="stat-label">Bots actifs</div>
+        </div>
+      </div>
+
+      <div class="section-title">Répartition par offre</div>
+      <div class="plans-row">
+        <div class="plan-pill">
+          <div class="count" id="plan-trial">0</div>
+          <div class="name">Essai</div>
+        </div>
+        <div class="plan-pill">
+          <div class="count" id="plan-start">0</div>
+          <div class="name">Start</div>
+        </div>
+        <div class="plan-pill">
+          <div class="count" id="plan-moyen">0</div>
+          <div class="name">Moyen</div>
+        </div>
+        <div class="plan-pill">
+          <div class="count" id="plan-premium">0</div>
+          <div class="name">Premium</div>
+        </div>
+      </div>
+
+      <div class="section-title">Utilisateurs</div>
+      <div class="users-table table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Offre</th>
+              <th>Statut</th>
+              <th>Tokens utilisés</th>
+              <th>Bot</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state hidden">Aucun utilisateur pour l'instant.</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { auth } from '/js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    const API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000'
+      : 'https://whagemia-api.onrender.com'; // à ajuster après déploiement Render
+
+    let idToken = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/index.html';
+        return;
+      }
+      idToken = await user.getIdToken();
+      loadAdminData();
+    });
+
+    document.getElementById('logout-btn').ad
