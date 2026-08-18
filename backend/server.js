@@ -5,6 +5,7 @@ const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/webhooks', webhookRoutes);
 app.use(express.json());
 app.use('/api/user', userRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/admin', adminRoutes);
 
 const PORT = process.env.PORT || 3000;
 
