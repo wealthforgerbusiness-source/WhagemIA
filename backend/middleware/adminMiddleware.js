@@ -1,5 +1,5 @@
 const ADMIN_EMAILS = [
-  'ton-email@gmail.com', // remplace par ton vrai email Google (celui utilisé pour te connecter)
+  'wealthforgerbusiness@gmail.com', // remplace par ton vrai email Google (celui utilisé pour te connecter)
 ];
 
 function verifyAdmin(req, res, next) {
