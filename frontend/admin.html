@@ -242,4 +242,76 @@
       loadAdminData();
     });
 
-    document.getElementById('logout-btn').ad
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = '/index.html';
+    });
+
+    async function loadAdminData() {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/overview`, {
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+
+        if (res.status === 403) {
+          document.body.innerHTML = '<div style="text-align:center; padding: 60px 20px;"><h2>Accès refusé</h2><p style="color:#6B7280;">Cette page est réservée à l\'administrateur.</p></div>';
+          return;
+        }
+
+        const data = await res.json();
+        renderAdmin(data);
+      } catch (error) {
+        console.error('Erreur chargement admin:', error);
+      }
+    }
+
+    function renderAdmin(data) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('admin-content').classList.remove('hidden');
+
+      const s = data.stats;
+      document.getElementById('stat-revenue').textContent = `$${s.estimatedMonthlyRevenue}`;
+      document.getElementById('stat-total').textContent = s.totalUsers;
+      document.getElementById('stat-active').textContent = s.activeUsers;
+      document.getElementById('stat-bots').textContent = s.botsActive;
+
+      document.getElementById('plan-trial').textContent = s.trialUsers;
+      document.getElementById('plan-start').textContent = s.startUsers;
+      document.getElementById('plan-moyen').textContent = s.moyenUsers;
+      document.getElementById('plan-premium').textContent = s.premiumUsers;
+
+      const tbody = document.getElementById('users-tbody');
+      const emptyState = document.getElementById('empty-state');
+
+      if (!data.users || data.users.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      const planNames = { trial: 'Essai', start: 'Start', moyen: 'Moyen', premium: 'Premium' };
+
+      tbody.innerHTML = data.users.map(u => `
+        <tr>
+          <td>${u.email || '—'}</td>
+          <td>${planNames[u.plan] || u.plan}</td>
+          <td>
+            <span class="row-status">
+              <span class="dot ${u.status === 'active' ? 'active' : 'expired'}"></span>
+              ${u.status === 'active' ? 'Actif' : 'Expiré'}
+            </span>
+          </td>
+          <td>${formatNumber((u.tokensInUsed||0) + (u.tokensOutUsed||0))}</td>
+          <td>${u.botEnabled ? '✅' : '⛔'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function formatNumber(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
+      return n;
+    }
+  </script>
+
+</body>
+</html>
