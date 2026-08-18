@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>WhagemIA — Agent IA WhatsApp</title>
+  <meta name="description" content="Automatisez vos réponses WhatsApp avec l'intelligence artificielle" />
+
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#25D366" />
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #F0FDF4 0%, #F7F8FA 60%);
+      padding: 20px;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .logo-img {
+      width: 88px;
+      height: 88px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--color-text-muted);
+      font-size: 15px;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .google-icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    #error-msg {
+      display: none;
+      color: var(--color-danger);
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .loading-dots {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .loading-dots.active {
+      display: block;
+    }
+
+    .terms {
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrap fade-in">
+    <img src="/assets/logo.png" alt="WhagemIA" class="logo-img" />
+    <h1>Bienvenue sur WhagemIA</h1>
+    <p class="subtitle">
+      Connectez votre WhatsApp à un agent IA qui répond à vos clients, même quand vous dormez.
+    </p>
+
+    <div class="card">
+      <button id="google-login-btn" class="btn btn-google">
+        <svg class="google-icon" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.6 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 15.7 3 8.6 8 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.4 26.7 37 24 37c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C8.5 40 15.6 45 24 45z"/>
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.6l6.2 5.2C40.9 36 44 30.5 44 24c0-1.4-.1-2.7-.4-3.5z"/>
+        </svg>
+        Continuer avec Google
+      </button>
+
+      <div id="loading-dots" class="loading-dots text-muted">
+        Connexion en cours...
+      </div>
+
+      <p id="error-msg"></p>
+    </div>
+
+    <p class="terms">
+      En continuant, vous acceptez que votre compte WhatsApp puisse être suspendu par Meta
+      en cas d'usage automatisé. WhagemIA n'est pas affilié à WhatsApp Inc.
+      <a href="/terms.html" style="color: var(--color-secondary);">Conditions complètes</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import { auth, googleProvider } from '/js/firebase-config.js';
+    import { signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    const btn = document.getElementById('google-login-btn');
+    const loadingDots = document.getElementById('loading-dots');
+    const errorMsg = document.getElementById('error-msg');
+
+    // Si déjà connecté, redirige direct vers le dashboard
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        window.location.href = '/dashboard.html';
+      }
+    });
+
+    btn.addEventListener('click', async () => {
+      errorMsg.style.display = 'none';
+      btn.style.display = 'none';
+      loadingDots.classList.add('active');
+
+      try {
+        await signInWithPopup(auth, googleProvider);
+        window.location.href = '/dashboard.html';
+      } catch (error) {
+        console.error('Erreur connexion Google:', error);
+        btn.style.display = 'flex';
+        loadingDots.classList.remove('active');
+        errorMsg.textContent = 'Erreur de connexion, réessayez.';
+        errorMsg.style.display = 'block';
+      }
+    });
+
+    // Enregistrement du service worker (PWA)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
+
+</body>
+</html>
