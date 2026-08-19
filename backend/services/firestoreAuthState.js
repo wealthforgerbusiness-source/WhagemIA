@@ -1,271 +1,180 @@
-const admin = require('firebase-admin');
 const {
   initAuthCreds,
   BufferJSON,
+  proto,
 } = require('@whiskeysockets/baileys');
 
-if (!admin.apps.length) {
-  throw new Error(
-    'Firebase Admin doit être initialisé avant firestoreAuthState.js'
-  );
+const { db } = require('../config/firebase');
+
+const SESSIONS_COLLECTION = 'whatsappAuth';
+
+function keyDocumentId(type, id) {
+  return Buffer.from(`${type}:${id}`).toString('base64url');
 }
 
-const db = admin.firestore();
-
-/*
-|--------------------------------------------------------------------------
-| Firestore Auth State pour Baileys
-|--------------------------------------------------------------------------
-|
-| Structure Firestore :
-|
-| baileys_sessions/{firebaseUid}
-|
-| {
-|   creds: {...},
-|   keys: {...},
-|   updatedAt: ...
-| }
-|
-|--------------------------------------------------------------------------
-*/
-
 async function useFirestoreAuthState(firebaseUid) {
-  if (!firebaseUid) {
-    throw new Error(
-      'firebaseUid est obligatoire pour utiliser Firestore Auth State'
-    );
-  }
-
-  const docRef = db
-    .collection('baileys_sessions')
+  const sessionRef = db
+    .collection(SESSIONS_COLLECTION)
     .doc(firebaseUid);
 
-  const snapshot = await docRef.get();
+  const keysCollection = sessionRef.collection('keys');
+
+  const credsRef = sessionRef.collection('data').doc('creds');
+
+  const credsSnapshot = await credsRef.get();
 
   let creds;
-  let keys;
 
-  /*
-  |--------------------------------------------------------------------------
-  | CHARGEMENT SESSION EXISTANTE
-  |--------------------------------------------------------------------------
-  */
-
-  if (snapshot.exists) {
-    const data = snapshot.data();
-
+  if (credsSnapshot.exists && credsSnapshot.data()?.payload) {
     try {
-      if (data.payload) {
-        const parsed = JSON.parse(
-          data.payload,
-          BufferJSON.reviver
-        );
+      creds = JSON.parse(
+        credsSnapshot.data().payload,
+        BufferJSON.reviver
+      );
 
-        creds = parsed.creds;
-        keys = parsed.keys || {};
-      } else {
-        creds = data.creds
-          ? JSON.parse(
-              JSON.stringify(data.creds),
-              BufferJSON.reviver
-            )
-          : null;
-
-        keys = data.keys
-          ? JSON.parse(
-              JSON.stringify(data.keys),
-              BufferJSON.reviver
-            )
-          : {};
-      }
-
-      if (!creds) {
-        console.log(
-          `⚠️ Credentials Firestore absents pour ${firebaseUid}, nouvelle session`
-        );
-
-        creds = initAuthCreds();
-        keys = {};
-      } else {
-        console.log(
-          `💾 Session Baileys Firestore chargée pour ${firebaseUid}`
-        );
-      }
+      console.log(
+        `✅ Credentials Firestore chargées pour ${firebaseUid}`
+      );
     } catch (error) {
       console.error(
-        `❌ Session Firestore corrompue pour ${firebaseUid}:`,
+        `❌ Credentials Firestore invalides pour ${firebaseUid}:`,
         error.message
       );
 
-      /*
-       * On repart avec une nouvelle session.
-       * Le prochain démarrage générera un QR.
-       */
       creds = initAuthCreds();
-      keys = {};
     }
   } else {
+    creds = initAuthCreds();
+
     console.log(
       `🆕 Aucune session Firestore pour ${firebaseUid}, création`
     );
-
-    creds = initAuthCreds();
-    keys = {};
   }
-
-  /*
-  |--------------------------------------------------------------------------
-  | STATE BAILEYS
-  |--------------------------------------------------------------------------
-  */
 
   const state = {
     creds,
 
     keys: {
-      /*
-      |--------------------------------------------------------------------------
-      | GET KEYS
-      |--------------------------------------------------------------------------
-      */
-
       get: async (type, ids) => {
         const result = {};
 
-        if (!keys[type]) {
-          return result;
-        }
+        await Promise.all(
+          ids.map(async (id) => {
+            const ref = keysCollection.doc(
+              keyDocumentId(type, id)
+            );
 
-        for (const id of ids) {
-          if (
-            keys[type][id] !== undefined &&
-            keys[type][id] !== null
-          ) {
-            result[id] = keys[type][id];
-          }
-        }
+            const snapshot = await ref.get();
+
+            if (!snapshot.exists) {
+              return;
+            }
+
+            const data = snapshot.data();
+
+            if (!data?.payload) {
+              return;
+            }
+
+            try {
+              let value = JSON.parse(
+                data.payload,
+                BufferJSON.reviver
+              );
+
+              /*
+               * Baileys attend un objet proto pour
+               * app-state-sync-key.
+               */
+              if (
+                type === 'app-state-sync-key' &&
+                value
+              ) {
+                value =
+                  proto.Message.AppStateSyncKeyData.fromObject(
+                    value
+                  );
+              }
+
+              result[id] = value;
+            } catch (error) {
+              console.error(
+                `❌ Erreur lecture clé ${type}/${id} pour ${firebaseUid}:`,
+                error.message
+              );
+            }
+          })
+        );
 
         return result;
       },
 
-      /*
-      |--------------------------------------------------------------------------
-      | SET KEYS
-      |--------------------------------------------------------------------------
-      */
-
       set: async (data) => {
+        const operations = [];
+
         for (const type of Object.keys(data)) {
-          if (!keys[type]) {
-            keys[type] = {};
+          const category = data[type];
+
+          if (!category) {
+            continue;
           }
 
-          for (const id of Object.keys(data[type])) {
-            const value = data[type][id];
+          for (const id of Object.keys(category)) {
+            const value = category[id];
+
+            const ref = keysCollection.doc(
+              keyDocumentId(type, id)
+            );
 
             /*
-             * Baileys peut supprimer certaines clés
-             * en envoyant null.
+             * Baileys supprime certaines clés en envoyant null.
              */
-            if (value === null) {
-              delete keys[type][id];
-            } else {
-              keys[type][id] = value;
+            if (value === null || value === undefined) {
+              operations.push(
+                ref.delete().catch(() => {})
+              );
+
+              continue;
             }
+
+            const payload = JSON.stringify(
+              value,
+              BufferJSON.replacer
+            );
+
+            operations.push(
+              ref.set(
+                {
+                  type,
+                  keyId: id,
+                  payload,
+                  updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+              )
+            );
           }
         }
 
-        /*
-         * Sauvegarde immédiatement les clés.
-         *
-         * Important pour éviter de perdre les mises à jour
-         * de session entre deux redémarrages Render.
-         */
-        await saveToFirestore();
+        await Promise.all(operations);
       },
     },
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | SAUVEGARDE FIRESTORE
-  |--------------------------------------------------------------------------
-  */
-
-  let saveInProgress = false;
-  let saveQueued = false;
-
-  async function saveToFirestore() {
-    /*
-     * Évite plusieurs écritures Firestore simultanées.
-     */
-    if (saveInProgress) {
-      saveQueued = true;
-      return;
-    }
-
-    saveInProgress = true;
-
-    try {
-      const payload = JSON.stringify(
-        {
-          creds: state.creds,
-          keys,
-        },
-        BufferJSON.replacer
-      );
-
-      await docRef.set(
-        {
-          payload,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          firebaseUid,
-        },
-        {
-          merge: true,
-        }
-      );
-
-      console.log(
-        `💾 Session Baileys sauvegardée dans Firestore: ${firebaseUid}`
-      );
-    } catch (error) {
-      console.error(
-        `❌ Erreur sauvegarde session Firestore ${firebaseUid}:`,
-        error.message
-      );
-
-      throw error;
-    } finally {
-      saveInProgress = false;
-
-      if (saveQueued) {
-        saveQueued = false;
-
-        /*
-         * Sauvegarde la dernière version.
-         */
-        await saveToFirestore();
-      }
-    }
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | SAVE CREDS
-  |--------------------------------------------------------------------------
-  */
-
   const saveCreds = async () => {
-    await saveToFirestore();
-  };
+    const payload = JSON.stringify(
+      state.creds,
+      BufferJSON.replacer
+    );
 
-  /*
-  |--------------------------------------------------------------------------
-  | RETOUR BAILEYS
-  |--------------------------------------------------------------------------
-  */
+    await credsRef.set(
+      {
+        payload,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  };
 
   return {
     state,
