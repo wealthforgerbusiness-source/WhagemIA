@@ -1,16 +1,14 @@
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
 
 const { Boom } = require('@hapi/boom');
-const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const pino = require('pino');
 
+const { useFirestoreAuthState } = require('./firestoreAuthState');
 const geminiService = require('./geminiService');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
@@ -18,67 +16,54 @@ const sessionModel = require('../models/sessionModel');
 const activeSockets = new Map();
 const qrCallbacks = new Map();
 const businessPrompts = new Map();
-
-// Permet de distinguer :
-// - fermeture volontaire par l'utilisateur
-// - déconnexion réelle de WhatsApp
 const manuallyStopped = new Set();
-
-// Empêche plusieurs connexions simultanées pour le même utilisateur
 const startingSessions = new Set();
 
-const SESSIONS_DIR = path.join(__dirname, '..', 'baileys_sessions');
-
-if (!fs.existsSync(SESSIONS_DIR)) {
-  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-}
-
-/**
- * Démarre ou redémarre une session WhatsApp.
- */
 async function startWhatsappSession(
   firebaseUid,
   userEmail,
   businessPrompt,
-  onQrCode,
-  usePairingCode,
-  phoneNumber
+  onQrCode = null,
+  connectionMethod = 'qr',
+  phoneNumber = null
 ) {
-  // Si une session est déjà en cours de démarrage,
-  // on ne crée pas une deuxième connexion.
   if (startingSessions.has(firebaseUid)) {
-    console.log(`Session déjà en cours de démarrage pour ${firebaseUid}`);
+    console.log(`⏳ Session déjà en démarrage: ${firebaseUid}`);
     return activeSockets.get(firebaseUid) || null;
   }
 
-  // Si un socket existe déjà et est actif, on le réutilise.
   const existingSocket = activeSockets.get(firebaseUid);
 
   if (existingSocket) {
-    console.log(`WhatsApp déjà actif pour ${firebaseUid}`);
+    console.log(`✅ Socket déjà actif: ${firebaseUid}`);
     return existingSocket;
   }
 
   startingSessions.add(firebaseUid);
-
-  // Une nouvelle demande de démarrage annule le statut "arrêté manuellement".
   manuallyStopped.delete(firebaseUid);
 
-  const sessionPath = path.join(SESSIONS_DIR, firebaseUid);
-
   try {
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-    const { version } = await fetchLatestBaileysVersion();
+    console.log(
+      `🚀 Démarrage WhatsApp ${firebaseUid} | méthode=${connectionMethod}`
+    );
 
-    businessPrompts.set(firebaseUid, businessPrompt);
+    const { state, saveCreds } =
+      await useFirestoreAuthState(firebaseUid);
 
-    console.log(`Démarrage WhatsApp pour ${firebaseUid}`);
+    const { version } =
+      await fetchLatestBaileysVersion();
+
+    businessPrompts.set(
+      firebaseUid,
+      businessPrompt || ''
+    );
 
     const sock = makeWASocket({
       version,
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
+      browser: ['WhagemIA', 'Chrome', '1.0.0'],
     });
 
     activeSockets.set(firebaseUid, sock);
@@ -87,293 +72,345 @@ async function startWhatsappSession(
       qrCallbacks.set(firebaseUid, onQrCode);
     }
 
-    /**
-     * Sauvegarde les credentials Baileys.
-     */
     sock.ev.on('creds.update', async () => {
       try {
         await saveCreds();
       } catch (error) {
         console.error(
-          `Erreur sauvegarde credentials WhatsApp ${firebaseUid}:`,
+          `❌ Erreur sauvegarde Firestore ${firebaseUid}:`,
           error.message
         );
       }
     });
 
-    /**
-     * Code de pairage.
-     */
-    if (
-      usePairingCode &&
-      phoneNumber &&
-      !sock.authState.creds.registered
-    ) {
-      try {
-        const code = await sock.requestPairingCode(phoneNumber);
+    let pairingRequested = false;
 
-        const callback = qrCallbacks.get(firebaseUid);
-
-        if (callback) {
-          callback(null, code);
-        }
-
-        console.log(`Code de pairage généré pour ${firebaseUid}`);
-      } catch (error) {
-        console.error(
-          `Erreur génération pairing code ${firebaseUid}:`,
-          error.message
-        );
-      }
-    }
-
-    /**
-     * Événements de connexion WhatsApp.
-     */
     sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      const {
+        connection,
+        lastDisconnect,
+        qr,
+      } = update;
 
-      /**
-       * QR CODE
-       */
-      if (qr && !usePairingCode) {
-        const callback = qrCallbacks.get(firebaseUid);
+      // =====================================================
+      // QR CODE
+      // =====================================================
+
+      if (qr && connectionMethod === 'qr') {
+        console.log(
+          `📲 QR CODE généré pour ${firebaseUid}`
+        );
+
+        const callback =
+          qrCallbacks.get(firebaseUid);
 
         if (callback) {
-          callback(qr, null);
+          callback(qr, null, null);
         }
       }
 
-      /**
-       * CONNEXION RÉUSSIE
-       */
-      if (connection === 'open') {
-        console.log(`WhatsApp connecté pour ${firebaseUid}`);
+      // =====================================================
+      // CODE DE PAIRAGE
+      // =====================================================
 
-        // On récupère le socket actuel.
-        // Important pour éviter qu'un ancien socket écrase un nouveau.
-        if (activeSockets.get(firebaseUid) !== sock) {
-          console.warn(
-            `Ancienne session ignorée pour ${firebaseUid}`
+      if (
+        connectionMethod === 'pairing' &&
+        phoneNumber &&
+        !state.creds.registered &&
+        !pairingRequested &&
+        (connection === 'connecting' || qr)
+      ) {
+        pairingRequested = true;
+
+        try {
+          const cleanPhone =
+            String(phoneNumber).replace(/\D/g, '');
+
+          if (!cleanPhone) {
+            throw new Error(
+              'Numéro de téléphone invalide'
+            );
+          }
+
+          console.log(
+            `📱 Demande code de pairage pour ${firebaseUid}`
           );
+
+          const code =
+            await sock.requestPairingCode(
+              cleanPhone
+            );
+
+          console.log(
+            `🔐 Code de pairage ${firebaseUid}: ${code}`
+          );
+
+          const callback =
+            qrCallbacks.get(firebaseUid);
+
+          if (callback) {
+            callback(null, code, null);
+          }
+        } catch (error) {
+          console.error(
+            `❌ Erreur code pairage ${firebaseUid}:`,
+            error.message
+          );
+
+          const callback =
+            qrCallbacks.get(firebaseUid);
+
+          if (callback) {
+            callback(
+              null,
+              null,
+              'PAIRING_CODE_ERROR'
+            );
+          }
+
+          pairingRequested = false;
+        }
+      }
+
+      // =====================================================
+      // CONNEXION OUVERTE
+      // =====================================================
+
+      if (connection === 'open') {
+        console.log(
+          `🟢 WhatsApp connecté: ${firebaseUid}`
+        );
+
+        try {
+          const connectedNumber =
+            sock.user?.id?.split(':')[0] ||
+            sock.user?.id?.split('@')[0];
+
+          if (!connectedNumber) {
+            console.warn(
+              `⚠️ Numéro WhatsApp impossible à récupérer: ${firebaseUid}`
+            );
+          } else {
+            const whatsappNumberHash =
+              crypto
+                .createHash('sha256')
+                .update(connectedNumber)
+                .digest('hex');
+
+            // ---------------------------------------------
+            // Anti-abus
+            // ---------------------------------------------
+
+            const existingByNumber =
+              await userModel.findUserByWhatsappHash(
+                whatsappNumberHash
+              );
+
+            if (
+              existingByNumber &&
+              existingByNumber.id !== firebaseUid
+            ) {
+              console.warn(
+                `⚠️ Numéro WhatsApp déjà utilisé: ${firebaseUid}`
+              );
+
+              manuallyStopped.add(firebaseUid);
+
+              await sock.end();
+
+              activeSockets.delete(firebaseUid);
+
+              const callback =
+                qrCallbacks.get(firebaseUid);
+
+              if (callback) {
+                callback(
+                  null,
+                  null,
+                  'NUMBER_ALREADY_USED'
+                );
+              }
+
+              return;
+            }
+
+            // ---------------------------------------------
+            // Utilisateur
+            // ---------------------------------------------
+
+            let user =
+              await userModel.getUserById(
+                firebaseUid
+              );
+
+            if (!user) {
+              await userModel.createUser({
+                firebaseUid,
+                email: userEmail,
+                whatsappNumberHash,
+              });
+            } else {
+              await userModel.updateUser(
+                firebaseUid,
+                {
+                  whatsappNumberHash,
+                  businessPrompt:
+                    businessPrompt || '',
+                }
+              );
+            }
+          }
+
+          // ---------------------------------------------
+          // Session Firestore
+          // ---------------------------------------------
+
+          await sessionModel.saveSessionStatus(
+            firebaseUid,
+            {
+              connected: true,
+              lastActiveAt:
+                new Date().toISOString(),
+            }
+          );
+
+          await sessionModel.setLastProcessedTimestamp(
+            firebaseUid,
+            new Date().toISOString()
+          );
+
+          qrCallbacks.delete(firebaseUid);
+
+          console.log(
+            `✅ Session WhatsApp prête: ${firebaseUid}`
+          );
+        } catch (error) {
+          console.error(
+            `❌ Erreur après connexion ${firebaseUid}:`,
+            error.message
+          );
+        }
+      }
+
+      // =====================================================
+      // CONNEXION FERMÉE
+      // =====================================================
+
+      if (connection === 'close') {
+        console.log(
+          `🔴 Connexion WhatsApp fermée: ${firebaseUid}`
+        );
+
+        activeSockets.delete(firebaseUid);
+
+        await sessionModel.saveSessionStatus(
+          firebaseUid,
+          {
+            connected: false,
+          }
+        );
+
+        // ---------------------------------------------
+        // Arrêt manuel
+        // ---------------------------------------------
+
+        if (
+          manuallyStopped.has(firebaseUid)
+        ) {
+          console.log(
+            `🛑 Arrêt manuel confirmé: ${firebaseUid}`
+          );
+
+          qrCallbacks.delete(firebaseUid);
+
           return;
         }
 
-        const connectedNumber =
-          sock.user?.id?.split(':')[0] ||
-          sock.user?.id?.split('@')[0];
+        // ---------------------------------------------
+        // Déconnexion WhatsApp
+        // ---------------------------------------------
 
-        if (connectedNumber) {
-          const whatsappNumberHash = crypto
-            .createHash('sha256')
-            .update(connectedNumber)
-            .digest('hex');
+        const statusCode =
+          new Boom(
+            lastDisconnect?.error
+          )?.output?.statusCode;
 
-          /**
-           * Anti-abus :
-           * un numéro WhatsApp ne peut pas être utilisé
-           * sur plusieurs comptes.
-           */
-          const existingByNumber =
-            await userModel.findUserByWhatsappHash(
-              whatsappNumberHash
+        const shouldReconnect =
+          statusCode !==
+          DisconnectReason.loggedOut;
+
+        if (shouldReconnect) {
+          console.log(
+            `🔄 Reconnexion automatique: ${firebaseUid}`
+          );
+
+          const user =
+            await userModel.getUserById(
+              firebaseUid
             );
 
-          if (
-            existingByNumber &&
-            existingByNumber.id !== firebaseUid
-          ) {
+          if (!user) {
             console.warn(
-              `Numéro WhatsApp déjà utilisé par un autre compte: ${firebaseUid}`
+              `⚠️ Utilisateur introuvable pour reconnexion: ${firebaseUid}`
             );
-
-            manuallyStopped.add(firebaseUid);
-
-            try {
-              await sock.logout();
-            } catch (error) {
-              console.error(
-                `Erreur logout numéro déjà utilisé ${firebaseUid}:`,
-                error.message
-              );
-            }
-
-            if (activeSockets.get(firebaseUid) === sock) {
-              activeSockets.delete(firebaseUid);
-            }
-
-            const callback = qrCallbacks.get(firebaseUid);
-
-            if (callback) {
-              callback(null, null, 'NUMBER_ALREADY_USED');
-            }
 
             return;
           }
 
-          /**
-           * Création/récupération de l'utilisateur.
-           */
-          let user = await userModel.getUserById(firebaseUid);
+          // Ne reconnecte pas un bot désactivé
+          if (!user.botEnabled) {
+            console.log(
+              `🛑 Bot désactivé, pas de reconnexion: ${firebaseUid}`
+            );
 
-          if (!user) {
-            user = await userModel.createUser({
+            return;
+          }
+
+          try {
+            await startWhatsappSession(
               firebaseUid,
-              email: userEmail,
-              whatsappNumberHash,
-            });
+              user.email,
+              user.businessPrompt || '',
+              null,
+              'qr',
+              null
+            );
+          } catch (error) {
+            console.error(
+              `❌ Erreur reconnexion ${firebaseUid}:`,
+              error.message
+            );
           }
-
-          await userModel.updateUser(firebaseUid, {
-            businessPrompt,
-            whatsappNumberHash,
-          });
         } else {
-          console.warn(
-            `Impossible de récupérer le numéro WhatsApp connecté pour ${firebaseUid}`
-          );
-        }
-
-        /**
-         * Mise à jour du statut en base.
-         */
-        await sessionModel.saveSessionStatus(firebaseUid, {
-          connected: true,
-          lastActiveAt: new Date().toISOString(),
-        });
-
-        await sessionModel.setLastProcessedTimestamp(
-          firebaseUid,
-          new Date().toISOString()
-        );
-
-        qrCallbacks.delete(firebaseUid);
-
-        console.log(
-          `Session WhatsApp prête pour ${firebaseUid}`
-        );
-      }
-
-      /**
-       * CONNEXION FERMÉE
-       */
-      if (connection === 'close') {
-        const statusCode =
-          new Boom(lastDisconnect?.error)?.output?.statusCode;
-
-        console.log(
-          `Connexion WhatsApp fermée pour ${firebaseUid}. Code: ${statusCode}`
-        );
-
-        /**
-         * IMPORTANT :
-         * Si l'utilisateur a volontairement désactivé le bot,
-         * surtout NE PAS reconnecter.
-         */
-        if (manuallyStopped.has(firebaseUid)) {
           console.log(
-            `Arrêt volontaire détecté pour ${firebaseUid}. Pas de reconnexion.`
-          );
-
-          if (activeSockets.get(firebaseUid) === sock) {
-            activeSockets.delete(firebaseUid);
-          }
-
-          await sessionModel.saveSessionStatus(firebaseUid, {
-            connected: false,
-          });
-
-          return;
-        }
-
-        /**
-         * Si le socket fermé n'est plus le socket actif,
-         * on ne touche pas au nouveau socket.
-         */
-        if (activeSockets.get(firebaseUid) === sock) {
-          activeSockets.delete(firebaseUid);
-        }
-
-        await sessionModel.saveSessionStatus(firebaseUid, {
-          connected: false,
-        });
-
-        /**
-         * LOGOUT WHATSAPP
-         *
-         * Dans ce cas, WhatsApp a réellement invalidé
-         * la session.
-         */
-        if (statusCode === DisconnectReason.loggedOut) {
-          console.log(
-            `Session WhatsApp expirée/déconnectée pour ${firebaseUid}`
+            `🚪 Session WhatsApp déconnectée définitivement: ${firebaseUid}`
           );
 
           businessPrompts.delete(firebaseUid);
-
-          const callback = qrCallbacks.get(firebaseUid);
-
-          if (callback) {
-            callback(null, null, 'SESSION_EXPIRED');
-          }
-
-          return;
+          qrCallbacks.delete(firebaseUid);
         }
-
-        /**
-         * AUTRE DÉCONNEXION :
-         * on tente une reconnexion automatique.
-         */
-        console.log(
-          `Reconnexion automatique WhatsApp pour ${firebaseUid}...`
-        );
-
-        const savedPrompt =
-          businessPrompts.get(firebaseUid) || businessPrompt;
-
-        setTimeout(() => {
-          if (!manuallyStopped.has(firebaseUid)) {
-            startWhatsappSession(
-              firebaseUid,
-              userEmail,
-              savedPrompt,
-              null,
-              false,
-              null
-            ).catch((error) => {
-              console.error(
-                `Erreur reconnexion WhatsApp ${firebaseUid}:`,
-                error.message
-              );
-            });
-          }
-        }, 3000);
       }
     });
 
-    /**
-     * Réception des messages WhatsApp.
-     */
+    // =====================================================
+    // MESSAGES
+    // =====================================================
+
     sock.ev.on(
       'messages.upsert',
       async ({ messages, type }) => {
         if (type !== 'notify') return;
 
-        const msg = messages[0];
+        const msg = messages?.[0];
 
-        if (!msg?.message) return;
-        if (msg.key?.fromMe) return;
-
-        /**
-         * Vérifie que ce socket est toujours le socket actif.
-         */
-        if (activeSockets.get(firebaseUid) !== sock) {
-          return;
-        }
+        if (!msg) return;
+        if (!msg.message) return;
+        if (msg.key.fromMe) return;
 
         const prompt =
           businessPrompts.get(firebaseUid) ||
-          businessPrompt;
+          businessPrompt ||
+          '';
 
         await handleIncomingMessage(
           firebaseUid,
@@ -385,23 +422,15 @@ async function startWhatsappSession(
     );
 
     return sock;
-  } catch (error) {
-    console.error(
-      `Erreur démarrage WhatsApp ${firebaseUid}:`,
-      error
-    );
-
-    activeSockets.delete(firebaseUid);
-
-    throw error;
   } finally {
     startingSessions.delete(firebaseUid);
   }
 }
 
-/**
- * Traitement des messages entrants.
- */
+// ============================================================
+// TRAITEMENT DES MESSAGES
+// ============================================================
+
 async function handleIncomingMessage(
   firebaseUid,
   sock,
@@ -409,17 +438,60 @@ async function handleIncomingMessage(
   businessPrompt
 ) {
   try {
-    const user = await userModel.getUserById(firebaseUid);
+    const user =
+      await userModel.getUserById(firebaseUid);
 
     if (!user) return;
 
-    /**
-     * Si le bot est désactivé ou le compte expiré,
-     * il ne répond pas.
-     */
-    if (!user.botEnabled || user.status === 'expired') {
+    if (
+      !user.botEnabled ||
+      user.status === 'expired'
+    ) {
       return;
     }
+
+    // --------------------------------------------------------
+    // QUOTA
+    // --------------------------------------------------------
+
+    const tokensInUsed =
+      Number(user.tokensInUsed || 0);
+
+    const tokensOutUsed =
+      Number(user.tokensOutUsed || 0);
+
+    const tokensInLimit =
+      Number(user.tokensInLimit || 0);
+
+    const tokensOutLimit =
+      Number(user.tokensOutLimit || 0);
+
+    if (
+      tokensInUsed >= tokensInLimit ||
+      tokensOutUsed >= tokensOutLimit
+    ) {
+      await userModel.updateUser(
+        firebaseUid,
+        {
+          status: 'expired',
+          botEnabled: false,
+        }
+      );
+
+      await sock.sendMessage(
+        msg.key.remoteJid,
+        {
+          text:
+            'Service temporairement indisponible. Merci de renouveler votre abonnement pour continuer.',
+        }
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // ANCIENS MESSAGES
+    // --------------------------------------------------------
 
     const lastProcessed =
       await sessionModel.getLastProcessedTimestamp(
@@ -427,14 +499,19 @@ async function handleIncomingMessage(
       );
 
     const msgTimestamp =
-      (msg.messageTimestamp || 0) * 1000;
+      Number(msg.messageTimestamp || 0) * 1000;
 
     if (
       lastProcessed &&
-      msgTimestamp < new Date(lastProcessed).getTime()
+      msgTimestamp <
+        new Date(lastProcessed).getTime()
     ) {
       return;
     }
+
+    // --------------------------------------------------------
+    // MESSAGE
+    // --------------------------------------------------------
 
     const userMessage =
       msg.message.conversation ||
@@ -442,6 +519,10 @@ async function handleIncomingMessage(
       '';
 
     if (!userMessage.trim()) return;
+
+    // --------------------------------------------------------
+    // GEMINI
+    // --------------------------------------------------------
 
     let text;
     let tokensIn;
@@ -452,14 +533,15 @@ async function handleIncomingMessage(
         text,
         tokensIn,
         tokensOut,
-      } = await geminiService.generateReply(
-        businessPrompt,
-        userMessage
-      ));
-    } catch (geminiError) {
+      } =
+        await geminiService.generateReply(
+          businessPrompt,
+          userMessage
+        ));
+    } catch (error) {
       console.error(
-        `Erreur Gemini pour ${firebaseUid}:`,
-        geminiError.message
+        `❌ Erreur Gemini ${firebaseUid}:`,
+        error.message
       );
 
       await sock.sendMessage(
@@ -473,6 +555,10 @@ async function handleIncomingMessage(
       return;
     }
 
+    // --------------------------------------------------------
+    // COMPTEUR TOKENS
+    // --------------------------------------------------------
+
     const usage =
       await userModel.incrementTokenUsage(
         firebaseUid,
@@ -485,153 +571,158 @@ async function handleIncomingMessage(
         msg.key.remoteJid,
         {
           text:
-            "Service temporairement indisponible. Merci de renouveler votre abonnement pour continuer.",
+            'Service temporairement indisponible. Merci de renouveler votre abonnement pour continuer.',
         }
       );
 
       return;
     }
 
+    // --------------------------------------------------------
+    // RÉPONSE WHATSAPP
+    // --------------------------------------------------------
+
     await sock.sendMessage(
       msg.key.remoteJid,
-      { text }
+      {
+        text,
+      }
     );
   } catch (error) {
     console.error(
-      `Erreur traitement message pour ${firebaseUid}:`,
+      `❌ Erreur traitement message ${firebaseUid}:`,
       error.message
     );
   }
 }
 
-/**
- * ARRÊT VOLONTAIRE DU BOT
- *
- * Utilisé quand l'utilisateur clique sur OFF.
- */
+// ============================================================
+// ARRÊTER UNE SESSION
+// ============================================================
+
 async function stopWhatsappSession(firebaseUid) {
   console.log(
-    `Arrêt volontaire du bot WhatsApp pour ${firebaseUid}`
+    `🛑 Arrêt demandé pour ${firebaseUid}`
   );
 
-  /**
-   * On indique AVANT sock.end()
-   * que cette fermeture est volontaire.
-   */
   manuallyStopped.add(firebaseUid);
 
-  const sock = activeSockets.get(firebaseUid);
+  const sock =
+    activeSockets.get(firebaseUid);
 
   if (sock) {
     try {
-      sock.end(undefined);
+      await sock.end(
+        new Error('Session arrêtée manuellement')
+      );
     } catch (error) {
       console.error(
-        `Erreur arrêt WhatsApp ${firebaseUid}:`,
+        `Erreur fermeture socket ${firebaseUid}:`,
         error.message
       );
     }
-
-    if (activeSockets.get(firebaseUid) === sock) {
-      activeSockets.delete(firebaseUid);
-    }
   }
 
-  await sessionModel.saveSessionStatus(firebaseUid, {
-    connected: false,
-  });
+  activeSockets.delete(firebaseUid);
 
-  console.log(
-    `Bot WhatsApp arrêté pour ${firebaseUid}`
-  );
-}
-
-/**
- * REDÉMARRAGE DU BOT
- *
- * À appeler quand l'utilisateur clique sur ON.
- */
-async function restartWhatsappSession(
-  firebaseUid,
-  userEmail,
-  businessPrompt,
-  onQrCode,
-  usePairingCode,
-  phoneNumber
-) {
-  console.log(
-    `Réactivation du bot WhatsApp pour ${firebaseUid}`
-  );
-
-  /**
-   * Annule le mode "arrêt volontaire".
-   */
-  manuallyStopped.delete(firebaseUid);
-
-  /**
-   * Si une ancienne socket existe encore,
-   * on la ferme avant de redémarrer.
-   */
-  const oldSocket = activeSockets.get(firebaseUid);
-
-  if (oldSocket) {
-    try {
-      oldSocket.end(undefined);
-    } catch (error) {
-      console.error(
-        `Erreur fermeture ancienne session ${firebaseUid}:`,
-        error.message
-      );
-    }
-
-    activeSockets.delete(firebaseUid);
-  }
-
-  /**
-   * On récupère le prompt actuel si nécessaire.
-   */
-  const savedPrompt =
-    businessPrompts.get(firebaseUid) ||
-    businessPrompt ||
-    '';
-
-  /**
-   * IMPORTANT :
-   * useMultiFileAuthState retrouve automatiquement
-   * les credentials existants dans :
-   *
-   * backend/baileys_sessions/<firebaseUid>
-   *
-   * Donc normalement aucun nouveau QR n'est nécessaire.
-   */
-  return startWhatsappSession(
+  await sessionModel.saveSessionStatus(
     firebaseUid,
-    userEmail,
-    savedPrompt,
-    onQrCode,
-    usePairingCode,
-    phoneNumber
+    {
+      connected: false,
+    }
+  );
+
+  console.log(
+    `✅ Session arrêtée: ${firebaseUid}`
   );
 }
 
-/**
- * Retourne le socket actif.
- */
+// ============================================================
+// SOCKET ACTIF
+// ============================================================
+
 function getActiveSocket(firebaseUid) {
-  return activeSockets.get(firebaseUid);
+  return activeSockets.get(firebaseUid) || null;
 }
 
-/**
- * Retourne l'état du socket.
- */
-function isWhatsappActive(firebaseUid) {
-  return activeSockets.has(firebaseUid);
+// ============================================================
+// RECONNEXION AU DÉMARRAGE DU SERVEUR
+// ============================================================
+
+async function reconnectAllActiveSessions() {
+  console.log(
+    '🔄 Recherche des sessions WhatsApp à reconnecter...'
+  );
+
+  let uids = [];
+
+  try {
+    uids =
+      await sessionModel.getAllConnectedUids();
+  } catch (error) {
+    console.error(
+      '❌ Impossible de récupérer les sessions:',
+      error.message
+    );
+
+    return;
+  }
+
+  console.log(
+    `📊 ${uids.length} session(s) trouvée(s)`
+  );
+
+  for (const firebaseUid of uids) {
+    try {
+      const user =
+        await userModel.getUserById(
+          firebaseUid
+        );
+
+      if (!user) continue;
+
+      if (!user.botEnabled) {
+        console.log(
+          `⏭️ Bot désactivé: ${firebaseUid}`
+        );
+
+        continue;
+      }
+
+      if (
+        user.status === 'expired'
+      ) {
+        console.log(
+          `⏭️ Abonnement expiré: ${firebaseUid}`
+        );
+
+        continue;
+      }
+
+      await startWhatsappSession(
+        firebaseUid,
+        user.email,
+        user.businessPrompt || '',
+        null,
+        'qr',
+        null
+      );
+
+      console.log(
+        `🔄 Reconnexion lancée: ${firebaseUid}`
+      );
+    } catch (error) {
+      console.error(
+        `❌ Reconnexion impossible ${firebaseUid}:`,
+        error.message
+      );
+    }
+  }
 }
 
 module.exports = {
   startWhatsappSession,
-  restartWhatsappSession,
   stopWhatsappSession,
   getActiveSocket,
-  isWhatsappActive,
+  reconnectAllActiveSessions,
 };
