@@ -1,5 +1,14 @@
 const EventEmitter = require('events');
 
-class WhatsappNotifier extends EventEmitter {}
+class NotificationService extends EventEmitter {
+  constructor() {
+    super();
+  }
 
-module.exports = new WhatsappNotifier();
+  emitFor(uid, payload) {
+    // payload: { event: 'qr'|'pairing'|'connected'|'error', data: any }
+    this.emit(uid, payload);
+  }
+}
+
+module.exports = new NotificationService();
