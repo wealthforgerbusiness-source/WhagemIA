@@ -678,20 +678,9 @@
             body: JSON.stringify(payload),
           });
 
-          if (data.pairingCode) {
-            pairingCodeText.textContent = data.pairingCode;
-            pairingContainer.style.display = 'block';
-            qrContainer.style.display = 'none';
-            btn.textContent = 'Nouveau code';
-            btn.disabled = false;
-            pollConnectionStatus();
-          } else if (data.qrCode) {
-            qrImage.src = data.qrCode;
-            qrContainer.style.display = 'block';
-            pairingContainer.style.display = 'none';
-            btn.textContent = 'Nouveau QR code';
-            btn.disabled = false;
-            pollConnectionStatus();
+          if (data.success || data.status === 'connecting') {
+            btn.disabled = true;
+            pollForQrOrPairing();
           } else {
             alert(data.error || 'Erreur lors de la génération de la connexion');
             btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
@@ -703,6 +692,43 @@
           btn.disabled = false;
         }
       });
+
+      function pollForQrOrPairing() {
+        const interval = setInterval(async () => {
+          try {
+            const data = await apiCall('/api/whatsapp/connect-status');
+
+            if (data.status === 'qr_ready' && data.qrCode) {
+              clearInterval(interval);
+              qrImage.src = data.qrCode;
+              qrContainer.style.display = 'block';
+              pairingContainer.style.display = 'none';
+              btn.textContent = 'Nouveau QR code';
+              btn.disabled = false;
+              pollConnectionStatus();
+            } else if (data.status === 'pairing_ready' && data.pairingCode) {
+              clearInterval(interval);
+              pairingCodeText.textContent = data.pairingCode;
+              pairingContainer.style.display = 'block';
+              qrContainer.style.display = 'none';
+              btn.textContent = 'Nouveau code';
+              btn.disabled = false;
+              pollConnectionStatus();
+            } else if (data.status === 'error') {
+              clearInterval(interval);
+              alert(data.error || 'Erreur lors de la génération de la connexion');
+              btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
+              btn.disabled = false;
+            } else if (data.status === 'connected') {
+              clearInterval(interval);
+              window.location.reload();
+            }
+            // sinon status === 'connecting' -> on continue de patienter
+          } catch (error) {
+            console.error('Erreur polling connect-status:', error);
+          }
+        }, 1500);
+      }
     }
 
     function pollConnectionStatus() {
