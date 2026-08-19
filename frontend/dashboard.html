@@ -9,15 +9,14 @@
   <meta name="theme-color" content="#25D366" />
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
   <link rel="icon" href="/assets/icons/favicon.ico" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="WhagemIA" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="/css/variables.css" />
   <link rel="stylesheet" href="/css/style.css" />
 
   <style>
-    body { padding-bottom: 40px; }
+    body {
+      padding-bottom: 40px;
+    }
 
     .topbar {
       display: flex;
@@ -31,9 +30,21 @@
       z-index: 10;
     }
 
-    .topbar-logo { display: flex; align-items: center; gap: 10px; }
-    .topbar-logo img { width: 30px; height: 30px; }
-    .topbar-logo span { font-weight: 700; font-size: 15px; }
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar-logo img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .topbar-logo span {
+      font-weight: 700;
+      font-size: 15px;
+    }
 
     .topbar-user {
       display: flex;
@@ -56,7 +67,11 @@
       flex-shrink: 0;
     }
 
-    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
     .user-name {
       font-size: 13.5px;
@@ -76,17 +91,33 @@
       align-items: center;
       padding: 6px;
       border-radius: var(--radius-sm);
-      transition: background 0.2s ease, color 0.2s ease;
     }
 
-    .logout-btn:hover { background: var(--color-bg); color: var(--color-danger); }
-    .logout-btn svg { width: 18px; height: 18px; }
+    .logout-btn:hover {
+      background: var(--color-bg);
+      color: var(--color-danger);
+    }
 
-    .content { max-width: 480px; margin: 0 auto; padding: 20px; }
+    .logout-btn svg {
+      width: 18px;
+      height: 18px;
+    }
 
-    .setup-card { text-align: center; padding: 32px 24px; }
+    .content {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px;
+    }
 
-    .setup-card img.illustration { width: 140px; margin-bottom: 20px; }
+    .setup-card {
+      text-align: center;
+      padding: 32px 24px;
+    }
+
+    .setup-card img.illustration {
+      width: 140px;
+      margin-bottom: 20px;
+    }
 
     textarea#business-prompt {
       width: 100%;
@@ -98,6 +129,7 @@
       font-size: 14px;
       resize: vertical;
       margin-bottom: 16px;
+      box-sizing: border-box;
     }
 
     textarea#business-prompt:focus {
@@ -124,7 +156,6 @@
       font-weight: 600;
       color: var(--color-text-muted);
       cursor: pointer;
-      transition: background 0.2s ease, color 0.2s ease;
     }
 
     .connect-tab.active {
@@ -133,7 +164,11 @@
       box-shadow: var(--shadow-sm);
     }
 
-    #phone-input-wrap { display: none; margin-bottom: 16px; text-align: left; }
+    #phone-input-wrap {
+      display: none;
+      margin-bottom: 16px;
+      text-align: left;
+    }
 
     #phone-input-wrap label {
       display: block;
@@ -148,11 +183,19 @@
       border-radius: var(--radius-md);
       border: 1.5px solid var(--color-border);
       font-size: 14px;
+      box-sizing: border-box;
     }
 
-    #phone-number:focus { outline: none; border-color: var(--color-secondary); }
+    #phone-number:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+    }
 
-    #qr-container, #pairing-container { display: none; margin-top: 20px; }
+    #qr-container,
+    #pairing-container {
+      display: none;
+      margin-top: 20px;
+    }
 
     #qr-container img {
       width: 220px;
@@ -160,6 +203,7 @@
       border-radius: var(--radius-md);
       border: 8px solid white;
       box-shadow: var(--shadow-lg);
+      image-rendering: auto;
     }
 
     .pairing-code-display {
@@ -170,6 +214,21 @@
       background: var(--color-bg);
       padding: 20px;
       border-radius: var(--radius-md);
+      word-break: break-all;
+    }
+
+    .connection-status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      font-size: 13px;
+      color: var(--color-text-muted);
+      display: none;
+    }
+
+    .connection-status.show {
+      display: block;
     }
 
     .status-card {
@@ -179,19 +238,23 @@
       margin-bottom: 16px;
     }
 
-    .status-left { display: flex; align-items: center; gap: 12px; }
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
     .status-dot {
       width: 12px;
       height: 12px;
       border-radius: 50%;
       background: var(--color-success);
-      box-shadow: 0 0 0 4px rgba(37,211,102,0.2);
+      box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.2);
     }
 
     .status-dot.off {
       background: var(--color-text-muted);
-      box-shadow: 0 0 0 4px rgba(107,114,128,0.15);
+      box-shadow: 0 0 0 4px rgba(107, 114, 128, 0.15);
     }
 
     .toggle {
@@ -201,11 +264,17 @@
       border-radius: 999px;
       background: var(--color-border);
       cursor: pointer;
-      transition: background var(--transition-medium);
       border: none;
     }
 
-    .toggle.active { background: var(--color-primary); }
+    .toggle.active {
+      background: var(--color-primary);
+    }
+
+    .toggle:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
 
     .toggle-knob {
       position: absolute;
@@ -216,12 +285,16 @@
       background: white;
       border-radius: 50%;
       box-shadow: var(--shadow-sm);
-      transition: transform var(--transition-medium);
+      transition: transform 0.2s ease;
     }
 
-    .toggle.active .toggle-knob { transform: translateX(22px); }
+    .toggle.active .toggle-knob {
+      transform: translateX(22px);
+    }
 
-    .token-block { margin-bottom: 20px; }
+    .token-block {
+      margin-bottom: 20px;
+    }
 
     .token-label {
       display: flex;
@@ -240,13 +313,22 @@
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      background: linear-gradient(
+        90deg,
+        var(--color-primary),
+        var(--color-secondary)
+      );
       border-radius: 999px;
       transition: width 0.6s ease;
     }
 
-    .progress-fill.warning { background: var(--color-warning); }
-    .progress-fill.danger { background: var(--color-danger); }
+    .progress-fill.warning {
+      background: var(--color-warning);
+    }
+
+    .progress-fill.danger {
+      background: var(--color-danger);
+    }
 
     .plan-badge {
       display: inline-flex;
@@ -254,38 +336,17 @@
       gap: 6px;
       padding: 6px 14px;
       border-radius: 999px;
-      background: rgba(91,33,182,0.08);
+      background: rgba(91, 33, 182, 0.08);
       color: var(--color-secondary);
       font-size: 13px;
       font-weight: 600;
       margin-bottom: 20px;
     }
 
-    .icon-lightning {
-      width: 12px;
-      height: 12px;
-      display: inline-block;
-      background-color: var(--color-secondary);
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'%3E%3C/polygon%3E%3C/svg%3E") no-repeat center;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'%3E%3C/polygon%3E%3C/svg%3E") no-repeat center;
+    .hidden {
+      display: none !important;
     }
 
-    .icon-warning {
-      width: 15px;
-      height: 15px;
-      display: inline-block;
-      background-color: var(--color-danger);
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'%3E%3C/path%3E%3Cline x1='12' y1='9' x2='12' y2='13'%3E%3C/line%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'%3E%3C/path%3E%3Cline x1='12' y1='9' x2='12' y2='13'%3E%3C/line%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
-      vertical-align: -2px;
-      margin-right: 6px;
-    }
-
-    .upgrade-btn { width: 100%; margin-top: 8px; }
-
-    .hidden { display: none !important; }
-
-    /* Écran de chargement à la marque WhagemIA (remplace l'ancien rond gris générique) */
     #app-splash {
       position: fixed;
       inset: 0;
@@ -295,28 +356,41 @@
       align-items: center;
       justify-content: center;
       gap: 18px;
-      background: radial-gradient(circle at 50% 35%, #16213E 0%, #0F0F1A 70%);
+      background: radial-gradient(
+        circle at 50% 35%,
+        #16213E 0%,
+        #0F0F1A 70%
+      );
       transition: opacity 0.4s ease, visibility 0.4s ease;
     }
-    #app-splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    #app-splash.hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     #app-splash img {
       width: 84px;
       height: 84px;
       border-radius: 22px;
       animation: splash-pulse 1.6s ease-in-out infinite;
-      filter: drop-shadow(0 6px 20px rgba(37,211,102,0.35));
     }
+
     #app-splash .splash-name {
-      font-family: var(--font-main);
       font-weight: 800;
       font-size: 20px;
-      letter-spacing: 0.5px;
       background: linear-gradient(135deg, #25D366, #7C3AED);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
     }
-    #app-splash .splash-dots { display: flex; gap: 6px; }
+
+    #app-splash .splash-dots {
+      display: flex;
+      gap: 6px;
+    }
+
     #app-splash .splash-dots span {
       width: 7px;
       height: 7px;
@@ -324,24 +398,52 @@
       background: #25D366;
       animation: splash-blink 1.2s ease-in-out infinite;
     }
-    #app-splash .splash-dots span:nth-child(2) { animation-delay: 0.2s; background: #7C3AED; }
-    #app-splash .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes splash-pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.08); opacity: 0.85; }
+
+    #app-splash .splash-dots span:nth-child(2) {
+      animation-delay: 0.2s;
+      background: #7C3AED;
     }
+
+    #app-splash .splash-dots span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes splash-pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.08);
+        opacity: 0.85;
+      }
+    }
+
     @keyframes splash-blink {
-      0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
-      40% { opacity: 1; transform: translateY(-4px); }
+      0%, 80%, 100% {
+        opacity: 0.25;
+        transform: translateY(0);
+      }
+
+      40% {
+        opacity: 1;
+        transform: translateY(-4px);
+      }
     }
   </style>
 </head>
+
 <body>
 
   <div id="app-splash">
     <img src="/assets/logo.png" alt="WhagemIA" />
     <span class="splash-name">WhagemIA</span>
-    <div class="splash-dots"><span></span><span></span><span></span></div>
+    <div class="splash-dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
   </div>
 
   <div class="topbar">
@@ -349,376 +451,1463 @@
       <img src="/assets/logo.png" alt="WhagemIA" />
       <span>WhagemIA</span>
     </div>
+
     <div class="topbar-user">
       <div class="user-avatar" id="user-avatar">?</div>
       <span class="user-name" id="user-name"></span>
-      <button class="logout-btn" id="logout-btn" aria-label="Déconnexion">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+
+      <button
+        class="logout-btn"
+        id="logout-btn"
+        aria-label="Déconnexion"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
       </button>
     </div>
   </div>
 
-  <div class="content">
+  <main class="content">
+
+    <!-- ========================= -->
+    <!-- CONNEXION WHATSAPP -->
+    <!-- ========================= -->
 
     <div id="setup-state" class="card setup-card fade-in hidden">
-      <img src="/assets/illustration-qr.png" alt="" class="illustration" />
-      <h2 style="margin-bottom: 8px;">Connectez votre WhatsApp</h2>
-      <p class="text-muted" style="margin-bottom: 20px;">
+
+      <img
+        src="/assets/illustration-qr.png"
+        alt=""
+        class="illustration"
+      />
+
+      <h2 style="margin-bottom: 8px;">
+        Connectez votre WhatsApp
+      </h2>
+
+      <p
+        class="text-muted"
+        style="margin-bottom: 20px;"
+      >
         Décrivez votre entreprise, l'IA répondra à vos clients à sa place.
       </p>
 
-      <textarea id="business-prompt" placeholder="Ex : Je vends des vêtements pour femmes à Kinshasa. Livraison sous 48h. Paiement Mobile Money uniquement."></textarea>
+      <textarea
+        id="business-prompt"
+        placeholder="Ex : Je vends des vêtements pour femmes à Kinshasa. Livraison sous 48h. Paiement Mobile Money uniquement."
+      ></textarea>
 
       <div class="connect-tabs">
-        <button class="connect-tab active" id="tab-qr" type="button">QR code (PC)</button>
-        <button class="connect-tab" id="tab-pairing" type="button">Un seul téléphone</button>
+
+        <button
+          class="connect-tab active"
+          id="tab-qr"
+          type="button"
+        >
+          QR code (PC)
+        </button>
+
+        <button
+          class="connect-tab"
+          id="tab-pairing"
+          type="button"
+        >
+          Un seul téléphone
+        </button>
+
       </div>
 
       <div id="phone-input-wrap">
-        <label for="phone-number">Numéro WhatsApp (avec indicatif, ex : 243...)</label>
-        <input type="tel" id="phone-number" placeholder="243812345678" />
+
+        <label for="phone-number">
+          Numéro WhatsApp avec indicatif
+        </label>
+
+        <input
+          type="tel"
+          id="phone-number"
+          placeholder="243812345678"
+          autocomplete="tel"
+        />
+
       </div>
 
-      <button id="start-connection-btn" class="btn btn-primary" style="width: 100%;">
+      <button
+        id="start-connection-btn"
+        class="btn btn-primary"
+        style="width: 100%;"
+        type="button"
+      >
         Générer le QR code
       </button>
 
       <div id="qr-container">
-        <img id="qr-image" src="" alt="QR Code WhatsApp" />
-        <p class="text-muted" style="margin-top: 14px;">
-          Ouvrez WhatsApp → Paramètres → Appareils liés → Scanner le QR code
+
+        <img
+          id="qr-image"
+          src=""
+          alt="QR Code WhatsApp"
+        />
+
+        <p
+          class="text-muted"
+          style="margin-top: 14px;"
+        >
+          WhatsApp → Paramètres → Appareils liés → Scanner le QR code.
         </p>
+
       </div>
 
       <div id="pairing-container">
-        <div class="pairing-code-display" id="pairing-code-text">— — — — — — — —</div>
-        <p class="text-muted" style="margin-top: 14px;">
-          Ouvrez WhatsApp → Paramètres → Appareils liés → Relier avec un numéro de téléphone → entrez ce code
+
+        <div
+          class="pairing-code-display"
+          id="pairing-code-text"
+        >
+          — — — — — — — —
+        </div>
+
+        <p
+          class="text-muted"
+          style="margin-top: 14px;"
+        >
+          WhatsApp → Paramètres → Appareils liés →
+          Relier avec un numéro de téléphone →
+          entrez ce code.
         </p>
+
       </div>
+
+      <div
+        id="connection-status"
+        class="connection-status"
+      >
+        En attente de la connexion WhatsApp…
+      </div>
+
     </div>
+
+    <!-- ========================= -->
+    <!-- DASHBOARD -->
+    <!-- ========================= -->
 
     <div id="dashboard-state" class="fade-in hidden">
 
       <div class="card status-card">
+
         <div class="status-left">
-          <div id="status-dot" class="status-dot"></div>
+
+          <div
+            id="status-dot"
+            class="status-dot"
+          ></div>
+
           <div>
-            <div id="status-text" style="font-weight: 600; font-size: 15px;">Bot actif</div>
-            <div class="text-muted" style="font-size: 13px;">WhatsApp connecté</div>
+
+            <div
+              id="status-text"
+              style="font-weight: 600; font-size: 15px;"
+            >
+              Bot actif
+            </div>
+
+            <div
+              id="connection-text"
+              class="text-muted"
+              style="font-size: 13px;"
+            >
+              WhatsApp connecté
+            </div>
+
           </div>
+
         </div>
-        <button id="bot-toggle" class="toggle active">
+
+        <button
+          id="bot-toggle"
+          class="toggle active"
+          type="button"
+        >
           <div class="toggle-knob"></div>
         </button>
+
       </div>
 
       <div class="card">
-        <span id="plan-badge" class="plan-badge"></span>
+
+        <span
+          id="plan-badge"
+          class="plan-badge"
+        ></span>
 
         <div class="token-block">
+
           <div class="token-label">
             <span>Tokens entrée</span>
             <span id="tokens-in-label">0 / 0</span>
           </div>
+
           <div class="progress-bar">
-            <div id="tokens-in-fill" class="progress-fill" style="width: 0%;"></div>
+            <div
+              id="tokens-in-fill"
+              class="progress-fill"
+              style="width: 0%;"
+            ></div>
           </div>
+
         </div>
 
         <div class="token-block">
+
           <div class="token-label">
             <span>Tokens sortie</span>
             <span id="tokens-out-label">0 / 0</span>
           </div>
+
           <div class="progress-bar">
-            <div id="tokens-out-fill" class="progress-fill" style="width: 0%;"></div>
+            <div
+              id="tokens-out-fill"
+              class="progress-fill"
+              style="width: 0%;"
+            ></div>
           </div>
+
         </div>
 
-        <p class="text-muted" style="margin-top: 16px; margin-bottom: 10px; font-size: 13px;">
+        <p
+          class="text-muted"
+          style="margin-top: 16px; margin-bottom: 10px; font-size: 13px;"
+        >
           Renouveler ou changer d'offre :
         </p>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <a href="https://gzbzlzip.mychariow.store/prd_fymelhio" class="btn btn-google" style="width: 100%;">
+
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          "
+        >
+
+          <a
+            href="https://gzbzlzip.mychariow.store/prd_fymelhio"
+            class="btn btn-google"
+            style="width: 100%;"
+          >
             Start — $5/mois
           </a>
-          <a href="https://gzbzlzip.mychariow.store/prd_7mimbvzb" class="btn btn-primary" style="width: 100%;">
+
+          <a
+            href="https://gzbzlzip.mychariow.store/prd_7mimbvzb"
+            class="btn btn-primary"
+            style="width: 100%;"
+          >
             Moyen — $10/mois
           </a>
-          <a href="https://gzbzlzip.mychariow.store/prd_xv5afl3a" class="btn btn-google" style="width: 100%;">
+
+          <a
+            href="https://gzbzlzip.mychariow.store/prd_xv5afl3a"
+            class="btn btn-google"
+            style="width: 100%;"
+          >
             Premium — $20/mois
           </a>
+
         </div>
+
       </div>
 
-      <div id="expired-banner" class="card hidden" style="margin-top: 16px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);">
-        <p style="color: var(--color-danger); font-weight: 600; margin-bottom: 8px;">
-          <span class="icon-warning"></span>Abonnement expiré
+      <div
+        id="expired-banner"
+        class="card hidden"
+        style="
+          margin-top: 16px;
+          background: rgba(239,68,68,0.06);
+          border: 1px solid rgba(239,68,68,0.2);
+        "
+      >
+
+        <p
+          style="
+            color: var(--color-danger);
+            font-weight: 600;
+            margin-bottom: 8px;
+          "
+        >
+          ⚠️ Abonnement expiré
         </p>
-        <p class="text-muted" style="margin-bottom: 14px;">
-          Votre bot est désactivé. Renouvelez votre abonnement pour ne pas perdre votre session WhatsApp.
+
+        <p
+          class="text-muted"
+          style="margin-bottom: 14px;"
+        >
+          Votre bot est désactivé.
+          Renouvelez votre abonnement pour continuer.
         </p>
+
       </div>
 
     </div>
 
-  </div>
+  </main>
 
   <script type="module">
+
     import { auth } from '/js/firebase-config.js';
-    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-    const API_BASE = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000'
-      : 'https://whagemia.onrender.com';
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-    const setupState = document.getElementById('setup-state');
-    const dashboardState = document.getElementById('dashboard-state');
+
+    /* =========================================================
+       CONFIGURATION
+    ========================================================= */
+
+    const API_BASE =
+      window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://whagemia.onrender.com';
+
+
+    /* =========================================================
+       ELEMENTS
+    ========================================================= */
+
+    const setupState =
+      document.getElementById('setup-state');
+
+    const dashboardState =
+      document.getElementById('dashboard-state');
+
+    const startButton =
+      document.getElementById('start-connection-btn');
+
+    const promptInput =
+      document.getElementById('business-prompt');
+
+    const qrContainer =
+      document.getElementById('qr-container');
+
+    const qrImage =
+      document.getElementById('qr-image');
+
+    const pairingContainer =
+      document.getElementById('pairing-container');
+
+    const pairingCodeText =
+      document.getElementById('pairing-code-text');
+
+    const phoneInput =
+      document.getElementById('phone-number');
+
+    const phoneInputWrap =
+      document.getElementById('phone-input-wrap');
+
+    const connectionStatus =
+      document.getElementById('connection-status');
+
+
+    /* =========================================================
+       VARIABLES
+    ========================================================= */
 
     let currentUser = null;
     let idToken = null;
+
     let connectMode = 'qr';
 
+    let connectionPolling = null;
+
+    let connectionInProgress = false;
+
+
+    /* =========================================================
+       SPLASH
+    ========================================================= */
+
     function hideSplash() {
-      const el = document.getElementById('app-splash');
-      if (!el) return;
-      el.classList.add('hide');
-      setTimeout(() => el.remove(), 450);
+
+      const splash =
+        document.getElementById('app-splash');
+
+      if (!splash) return;
+
+      splash.classList.add('hide');
+
+      setTimeout(() => {
+        if (splash.parentNode) {
+          splash.remove();
+        }
+      }, 450);
     }
-    // Filet de sécurité pour ne jamais rester bloqué sur l'écran de chargement
+
     setTimeout(hideSplash, 6000);
 
+
+    /* =========================================================
+       AUTH
+    ========================================================= */
+
     onAuthStateChanged(auth, async (user) => {
+
       if (!user) {
+
         window.location.href = '/login.html';
+
         return;
       }
+
       currentUser = user;
-      idToken = await user.getIdToken();
 
-      const avatar = document.getElementById('user-avatar');
-      const nameEl = document.getElementById('user-name');
-      const displayName = user.displayName || user.email || 'Utilisateur';
-      nameEl.textContent = displayName.split(' ')[0];
+      try {
 
-      if (user.photoURL) {
-        avatar.innerHTML = `<img src="${user.photoURL}" alt="${displayName}" />`;
-      } else {
-        avatar.textContent = displayName.charAt(0).toUpperCase();
+        idToken =
+          await currentUser.getIdToken(true);
+
+      } catch (error) {
+
+        console.error(
+          'Erreur récupération token Firebase:',
+          error
+        );
+
+        hideSplash();
+
+        return;
       }
 
-      loadDashboard();
+
+      const avatar =
+        document.getElementById('user-avatar');
+
+      const nameEl =
+        document.getElementById('user-name');
+
+      const displayName =
+        currentUser.displayName ||
+        currentUser.email ||
+        'Utilisateur';
+
+
+      nameEl.textContent =
+        displayName.split(' ')[0];
+
+
+      if (currentUser.photoURL) {
+
+        avatar.innerHTML =
+          `<img src="${escapeHtml(currentUser.photoURL)}" alt="">`;
+
+      } else {
+
+        avatar.textContent =
+          displayName
+            .charAt(0)
+            .toUpperCase();
+
+      }
+
+
+      await loadDashboard();
+
     });
 
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await signOut(auth);
-      window.location.href = '/login.html';
-    });
 
-    document.getElementById('tab-qr').addEventListener('click', () => {
-      connectMode = 'qr';
-      document.getElementById('tab-qr').classList.add('active');
-      document.getElementById('tab-pairing').classList.remove('active');
-      document.getElementById('phone-input-wrap').style.display = 'none';
-      document.getElementById('start-connection-btn').textContent = 'Générer le QR code';
-    });
+    /* =========================================================
+       LOGOUT
+    ========================================================= */
 
-    document.getElementById('tab-pairing').addEventListener('click', () => {
-      connectMode = 'pairing';
-      document.getElementById('tab-pairing').classList.add('active');
-      document.getElementById('tab-qr').classList.remove('active');
-      document.getElementById('phone-input-wrap').style.display = 'block';
-      document.getElementById('start-connection-btn').textContent = 'Obtenir le code';
-    });
+    document
+      .getElementById('logout-btn')
+      .addEventListener('click', async () => {
 
-    async function apiCall(endpoint, options = {}) {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-          ...(options.headers || {}),
-        },
+        stopConnectionPolling();
+
+        await signOut(auth);
+
+        window.location.href =
+          '/login.html';
+
       });
-      return res.json();
-    }
 
-   async function loadDashboard() {
-  try {
-    const data = await apiCall('/api/user/me');
 
-    hideSplash();
+    /* =========================================================
+       ONGLETS QR / PAIRING
+    ========================================================= */
 
-    // IMPORTANT :
-    // toujours masquer les deux interfaces avant
-    // de décider laquelle afficher.
-    setupState.classList.add('hidden');
-    dashboardState.classList.add('hidden');
+    document
+      .getElementById('tab-qr')
+      .addEventListener('click', () => {
 
-    if (
-      !data.session ||
-      !data.session.connected
+        connectMode = 'qr';
+
+        document
+          .getElementById('tab-qr')
+          .classList.add('active');
+
+        document
+          .getElementById('tab-pairing')
+          .classList.remove('active');
+
+        phoneInputWrap.style.display =
+          'none';
+
+        startButton.textContent =
+          'Générer le QR code';
+
+        pairingContainer.style.display =
+          'none';
+
+        connectionStatus.classList.remove('show');
+
+      });
+
+
+    document
+      .getElementById('tab-pairing')
+      .addEventListener('click', () => {
+
+        connectMode = 'pairing';
+
+        document
+          .getElementById('tab-pairing')
+          .classList.add('active');
+
+        document
+          .getElementById('tab-qr')
+          .classList.remove('active');
+
+        phoneInputWrap.style.display =
+          'block';
+
+        startButton.textContent =
+          'Obtenir le code';
+
+        qrContainer.style.display =
+          'none';
+
+        connectionStatus.classList.remove('show');
+
+      });
+
+
+    /* =========================================================
+       API
+    ========================================================= */
+
+    async function apiCall(
+      endpoint,
+      options = {},
+      refreshToken = false
     ) {
-      setupState.classList.remove('hidden');
 
-      setupQrFlow();
-    } else {
-      dashboardState.classList.remove('hidden');
+      if (!currentUser) {
+        throw new Error(
+          'Utilisateur Firebase absent'
+        );
+      }
 
-      renderDashboard(data);
+
+      if (
+        refreshToken ||
+        !idToken
+      ) {
+
+        idToken =
+          await currentUser.getIdToken(
+            true
+          );
+
+      }
+
+
+      const response =
+        await fetch(
+          `${API_BASE}${endpoint}`,
+          {
+            ...options,
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              'Authorization':
+                `Bearer ${idToken}`,
+
+              ...(options.headers || {})
+            }
+          }
+        );
+
+
+      let data = {};
+
+      try {
+
+        data =
+          await response.json();
+
+      } catch {
+
+        data = {};
+
+      }
+
+
+      if (!response.ok) {
+
+        const error =
+          new Error(
+            data.error ||
+            `Erreur HTTP ${response.status}`
+          );
+
+        error.status =
+          response.status;
+
+        error.data =
+          data;
+
+        throw error;
+      }
+
+
+      return data;
     }
-  } catch (error) {
-    console.error(
-      'Erreur chargement dashboard:',
-      error
-    );
 
-    hideSplash();
 
-    setupState.classList.add('hidden');
-    dashboardState.classList.add('hidden');
+    /* =========================================================
+       AFFICHAGE D'UN SEUL ETAT
+    ========================================================= */
 
-    setupState.classList.remove('hidden');
+    function showSetup() {
 
-    setupQrFlow();
-  }
-}
+      dashboardState.classList.add(
+        'hidden'
+      );
+
+      setupState.classList.remove(
+        'hidden'
+      );
+
+    }
+
+
+    function showDashboard() {
+
+      setupState.classList.add(
+        'hidden'
+      );
+
+      dashboardState.classList.remove(
+        'hidden'
+      );
+
+    }
+
+
+    /* =========================================================
+       CHARGEMENT DASHBOARD
+    ========================================================= */
+
+    async function loadDashboard() {
+
+      try {
+
+        const data =
+          await apiCall(
+            '/api/user/me'
+          );
+
+
+        hideSplash();
+
+
+        const connected =
+          Boolean(
+            data &&
+            data.session &&
+            data.session.connected
+          );
+
+
+        /*
+          IMPORTANT :
+
+          Une seule interface est affichée.
+        */
+
+        if (!connected) {
+
+          showSetup();
+
+        } else {
+
+          showDashboard(
+            renderDashboard(data)
+          );
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          'Erreur chargement dashboard:',
+          error
+        );
+
+        hideSplash();
+
+        /*
+          On affiche la connexion uniquement
+          si le backend est temporairement
+          inaccessible.
+
+          Mais on ne crée PAS plusieurs
+          event listeners.
+        */
+
+        showSetup();
+
+      }
+
+    }
+
+
+    /* =========================================================
+       DASHBOARD
+    ========================================================= */
 
     function renderDashboard(data) {
-      const statusDot = document.getElementById('status-dot');
-      const statusText = document.getElementById('status-text');
-      const botToggle = document.getElementById('bot-toggle');
-      const expiredBanner = document.getElementById('expired-banner');
-      const planBadge = document.getElementById('plan-badge');
 
-      const planNames = { trial: 'Essai gratuit', start: 'Offre Start', moyen: 'Offre Moyen', premium: 'Offre Premium' };
-      planBadge.innerHTML = `<span class="icon-lightning"></span>${planNames[data.plan] || data.plan}`;
+      const statusDot =
+        document.getElementById('status-dot');
+
+      const statusText =
+        document.getElementById('status-text');
+
+      const connectionText =
+        document.getElementById('connection-text');
+
+      const botToggle =
+        document.getElementById('bot-toggle');
+
+      const expiredBanner =
+        document.getElementById('expired-banner');
+
+      const planBadge =
+        document.getElementById('plan-badge');
+
+
+      const planNames = {
+        trial: 'Essai gratuit',
+        start: 'Offre Start',
+        moyen: 'Offre Moyen',
+        premium: 'Offre Premium'
+      };
+
+
+      planBadge.textContent =
+        planNames[data.plan] ||
+        data.plan ||
+        'Offre';
+
+
+      expiredBanner.classList.add(
+        'hidden'
+      );
+
 
       if (data.status === 'expired') {
-        expiredBanner.classList.remove('hidden');
-        statusDot.classList.add('off');
-        statusText.textContent = 'Bot désactivé';
-        botToggle.classList.remove('active');
-      } else if (data.botEnabled) {
-        statusDot.classList.remove('off');
-        statusText.textContent = 'Bot actif';
-        botToggle.classList.add('active');
+
+        expiredBanner.classList.remove(
+          'hidden'
+        );
+
+        statusDot.classList.add(
+          'off'
+        );
+
+        statusText.textContent =
+          'Bot désactivé';
+
+        connectionText.textContent =
+          'Abonnement expiré';
+
+        botToggle.classList.remove(
+          'active'
+        );
+
+        botToggle.disabled =
+          true;
+
       } else {
-        statusDot.classList.add('off');
-        statusText.textContent = 'Bot désactivé';
-        botToggle.classList.remove('active');
+
+        botToggle.disabled =
+          false;
+
+
+        if (data.botEnabled) {
+
+          statusDot.classList.remove(
+            'off'
+          );
+
+          statusText.textContent =
+            'Bot actif';
+
+          connectionText.textContent =
+            'WhatsApp connecté';
+
+          botToggle.classList.add(
+            'active'
+          );
+
+        } else {
+
+          statusDot.classList.add(
+            'off'
+          );
+
+          statusText.textContent =
+            'Bot désactivé';
+
+          connectionText.textContent =
+            'WhatsApp connecté';
+
+          botToggle.classList.remove(
+            'active'
+          );
+
+        }
+
       }
 
-      updateProgressBar('tokens-in', data.tokensInUsed, data.tokensInLimit);
-      updateProgressBar('tokens-out', data.tokensOutUsed, data.tokensOutLimit);
 
-      botToggle.onclick = async () => {
-        if (data.status === 'expired') return;
-        await apiCall('/api/user/toggle-bot', { method: 'POST' });
-        loadDashboard();
+      updateProgressBar(
+        'tokens-in',
+        Number(data.tokensInUsed || 0),
+        Number(data.tokensInLimit || 0)
+      );
+
+
+      updateProgressBar(
+        'tokens-out',
+        Number(data.tokensOutUsed || 0),
+        Number(data.tokensOutLimit || 0)
+      );
+
+
+      /*
+        IMPORTANT :
+
+        onclick est remplacé ici avec une
+        seule fonction.
+
+        Aucun addEventListener répété.
+      */
+
+      botToggle.onclick =
+        toggleBot;
+
+    }
+
+
+    /* =========================================================
+       TOGGLE BOT
+    ========================================================= */
+
+    async function toggleBot() {
+
+      if (!currentUser) return;
+
+      const button =
+        document.getElementById(
+          'bot-toggle'
+        );
+
+      if (button.disabled) return;
+
+
+      button.disabled =
+        true;
+
+
+      try {
+
+        const data =
+          await apiCall(
+            '/api/user/toggle-bot',
+            {
+              method: 'POST'
+            },
+            true
+          );
+
+
+        console.log(
+          'Réponse toggle bot:',
+          data
+        );
+
+
+        /*
+          On recharge l'état réel
+          depuis le backend.
+        */
+
+        await loadDashboard();
+
+
+      } catch (error) {
+
+        console.error(
+          'Erreur toggle bot:',
+          error
+        );
+
+        alert(
+          error.message ||
+          'Impossible de modifier le statut du bot.'
+        );
+
+      } finally {
+
+        button.disabled =
+          false;
+
+      }
+
+    }
+
+
+    /* =========================================================
+       PROGRESS BAR
+    ========================================================= */
+
+    function updateProgressBar(
+      prefix,
+      used,
+      limit
+    ) {
+
+      const percent =
+        limit > 0
+          ? Math.min(
+              100,
+              (used / limit) * 100
+            )
+          : 0;
+
+
+      const fill =
+        document.getElementById(
+          `${prefix}-fill`
+        );
+
+      const label =
+        document.getElementById(
+          `${prefix}-label`
+        );
+
+
+      fill.style.width =
+        `${percent}%`;
+
+
+      label.textContent =
+        `${formatNumber(used)} / ${formatNumber(limit)}`;
+
+
+      fill.classList.remove(
+        'warning',
+        'danger'
+      );
+
+
+      if (percent >= 90) {
+
+        fill.classList.add(
+          'danger'
+        );
+
+      } else if (percent >= 70) {
+
+        fill.classList.add(
+          'warning'
+        );
+
+      }
+
+    }
+
+
+    function formatNumber(number) {
+
+      if (!Number.isFinite(number)) {
+        return '0';
+      }
+
+      if (number >= 1000000) {
+
+        return (
+          number / 1000000
+        ).toFixed(1) + 'M';
+
+      }
+
+      if (number >= 1000) {
+
+        return (
+          number / 1000
+        ).toFixed(0) + 'k';
+
+      }
+
+      return String(number);
+
+    }
+
+
+    /* =========================================================
+       CONNEXION WHATSAPP
+    ========================================================= */
+
+    /*
+      IMPORTANT :
+
+      Cette fonction n'est appelée qu'une seule fois
+      au chargement du script.
+
+      Pas de btn.addEventListener() dans loadDashboard().
+    */
+
+    startButton.addEventListener(
+      'click',
+      startWhatsappConnection
+    );
+
+
+    async function startWhatsappConnection() {
+
+      if (connectionInProgress) {
+        return;
+      }
+
+
+      const businessPrompt =
+        promptInput.value.trim();
+
+
+      if (businessPrompt.length < 10) {
+
+        alert(
+          "Décrivez votre entreprise en quelques mots (minimum 10 caractères)."
+        );
+
+        return;
+
+      }
+
+
+      const payload = {
+        businessPrompt
       };
-    }
 
-    function updateProgressBar(prefix, used, limit) {
-      const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-      const fill = document.getElementById(`${prefix}-fill`);
-      const label = document.getElementById(`${prefix}-label`);
 
-      fill.style.width = `${percent}%`;
-      label.textContent = `${formatNumber(used)} / ${formatNumber(limit)}`;
+      if (connectMode === 'pairing') {
 
-      fill.classList.remove('warning', 'danger');
-      if (percent >= 90) fill.classList.add('danger');
-      else if (percent >= 70) fill.classList.add('warning');
-    }
+        const phone =
+          phoneInput.value
+            .trim()
+            .replace(/\D/g, '');
 
-    function formatNumber(n) {
-      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-      if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
-      return n;
-    }
 
-    function setupQrFlow() {
-      const btn = document.getElementById('start-connection-btn');
-      const promptInput = document.getElementById('business-prompt');
-      const qrContainer = document.getElementById('qr-container');
-      const qrImage = document.getElementById('qr-image');
-      const pairingContainer = document.getElementById('pairing-container');
-      const pairingCodeText = document.getElementById('pairing-code-text');
-      const phoneInput = document.getElementById('phone-number');
+        if (phone.length < 9) {
 
-      btn.addEventListener('click', async () => {
-        const businessPrompt = promptInput.value.trim();
+          alert(
+            'Entrez un numéro WhatsApp valide avec indicatif pays.'
+          );
 
-        if (businessPrompt.length < 10) {
-          alert('Décrivez votre entreprise en quelques mots (minimum 10 caractères).');
           return;
+
         }
 
-        const payload = { businessPrompt };
 
-        if (connectMode === 'pairing') {
-          const phone = phoneInput.value.trim().replace(/\D/g, '');
-          if (phone.length < 9) {
-            alert('Entrez un numéro WhatsApp valide avec indicatif pays.');
-            return;
-          }
-          payload.usePairingCode = true;
-          payload.phoneNumber = phone;
+        payload.usePairingCode =
+          true;
+
+        payload.phoneNumber =
+          phone;
+
+      } else {
+
+        payload.usePairingCode =
+          false;
+
+      }
+
+
+      connectionInProgress =
+        true;
+
+
+      stopConnectionPolling();
+
+
+      qrContainer.style.display =
+        'none';
+
+      pairingContainer.style.display =
+        'none';
+
+      connectionStatus.classList.add(
+        'show'
+      );
+
+      connectionStatus.textContent =
+        connectMode === 'qr'
+          ? 'Génération du QR code…'
+          : 'Génération du code de pairage…';
+
+
+      startButton.disabled =
+        true;
+
+      startButton.textContent =
+        connectMode === 'qr'
+          ? 'Génération…'
+          : 'Génération…';
+
+
+      try {
+
+        const data =
+          await apiCall(
+            '/api/whatsapp/connect',
+            {
+              method: 'POST',
+              body: JSON.stringify(
+                payload
+              )
+            },
+            true
+          );
+
+
+        console.log(
+          'Réponse connexion WhatsApp:',
+          data
+        );
+
+
+        if (data.pairingCode) {
+
+          pairingCodeText.textContent =
+            formatPairingCode(
+              data.pairingCode
+            );
+
+          pairingContainer.style.display =
+            'block';
+
+          qrContainer.style.display =
+            'none';
+
+          connectionStatus.textContent =
+            'Code généré. Entrez-le dans WhatsApp.';
+
+          startButton.textContent =
+            'Obtenir un nouveau code';
+
+
+          startConnectionPolling();
+
+          return;
+
         }
 
-        btn.textContent = 'Génération...';
-        btn.disabled = true;
 
-        try {
-          const data = await apiCall('/api/whatsapp/connect', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          });
+        if (data.qrCode) {
 
-          if (data.pairingCode) {
-            pairingCodeText.textContent = data.pairingCode;
-            pairingContainer.style.display = 'block';
-            qrContainer.style.display = 'none';
-            btn.textContent = 'Nouveau code';
-            btn.disabled = false;
-            pollConnectionStatus();
-          } else if (data.qrCode) {
-            qrImage.src = data.qrCode;
-            qrContainer.style.display = 'block';
-            pairingContainer.style.display = 'none';
-            btn.textContent = 'Nouveau QR code';
-            btn.disabled = false;
-            pollConnectionStatus();
-          } else {
-            alert(data.error || 'Erreur lors de la génération de la connexion');
-            btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
-            btn.disabled = false;
-          }
-        } catch (error) {
-          console.error(error);
-          btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
-          btn.disabled = false;
+          qrImage.src =
+            data.qrCode;
+
+          qrContainer.style.display =
+            'block';
+
+          pairingContainer.style.display =
+            'none';
+
+          connectionStatus.textContent =
+            'Scannez le QR code avec WhatsApp.';
+
+          startButton.textContent =
+            'Générer un nouveau QR code';
+
+
+          startConnectionPolling();
+
+          return;
+
         }
-      });
+
+
+        throw new Error(
+          data.error ||
+          'Le serveur n’a retourné ni QR code ni code de pairage.'
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          'Erreur connexion WhatsApp:',
+          error
+        );
+
+
+        let message =
+          error.message ||
+          'Erreur lors de la connexion WhatsApp.';
+
+
+        if (error.status === 403) {
+
+          message =
+            error.message ||
+            'Ce numéro WhatsApp ne peut pas être utilisé.';
+
+        }
+
+
+        connectionStatus.textContent =
+          message;
+
+
+        connectionStatus.classList.add(
+          'show'
+        );
+
+
+        startButton.textContent =
+          connectMode === 'qr'
+            ? 'Générer le QR code'
+            : 'Obtenir le code';
+
+
+      } finally {
+
+        connectionInProgress =
+          false;
+
+        startButton.disabled =
+          false;
+
+      }
+
     }
 
-    function pollConnectionStatus() {
-      const interval = setInterval(async () => {
-        const data = await apiCall('/api/user/me');
-        if (data.session && data.session.connected) {
-          clearInterval(interval);
-          window.location.reload();
-        }
-      }, 3000);
+
+    /* =========================================================
+       POLLING CONNEXION
+    ========================================================= */
+
+    function startConnectionPolling() {
+
+      stopConnectionPolling();
+
+
+      connectionPolling =
+        setInterval(
+          async () => {
+
+            try {
+
+              const data =
+                await apiCall(
+                  '/api/user/me'
+                );
+
+
+              if (
+                data.session &&
+                data.session.connected
+              ) {
+
+                stopConnectionPolling();
+
+                connectionInProgress =
+                  false;
+
+                hideSplash();
+
+                showDashboard();
+
+                renderDashboard(data);
+
+                connectionStatus.classList.remove(
+                  'show'
+                );
+
+                /*
+                  Pas de window.location.reload().
+                  Cela évite de relancer inutilement
+                  toute l'application.
+                */
+
+              }
+
+            } catch (error) {
+
+              console.warn(
+                'Vérification connexion WhatsApp:',
+                error.message
+              );
+
+            }
+
+          },
+          3000
+        );
+
     }
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js');
-      });
+
+    function stopConnectionPolling() {
+
+      if (connectionPolling) {
+
+        clearInterval(
+          connectionPolling
+        );
+
+        connectionPolling =
+          null;
+
+      }
+
     }
+
+
+    /* =========================================================
+       CODE DE PAIRAGE
+    ========================================================= */
+
+    function formatPairingCode(code) {
+
+      if (!code) {
+        return '';
+      }
+
+
+      const clean =
+        String(code)
+          .replace(/\s/g, '')
+          .toUpperCase();
+
+
+      /*
+        Affichage par groupes de 4.
+        Le backend continue de recevoir
+        le code original.
+      */
+
+      return clean.match(
+        /.{1,4}/g
+      )?.join(' ') || clean;
+
+    }
+
+
+    /* =========================================================
+       SECURITE AFFICHAGE
+    ========================================================= */
+
+    function escapeHtml(value) {
+
+      return String(value)
+        .replace(
+          /&/g,
+          '&amp;'
+        )
+        .replace(
+          /</g,
+          '&lt;'
+        )
+        .replace(
+          />/g,
+          '&gt;'
+        )
+        .replace(
+          /"/g,
+          '&quot;'
+        )
+        .replace(
+          /'/g,
+          '&#039;'
+        );
+
+    }
+
+
+    /* =========================================================
+       SERVICE WORKER
+    ========================================================= */
+
+    /*
+      IMPORTANT :
+
+      On NE met volontairement pas en cache les
+      requêtes API POST.
+
+      Le service worker doit lui-même ignorer
+      les requêtes POST.
+
+      On ne recharge pas la page après connexion.
+    */
+
+    if (
+      'serviceWorker' in navigator
+    ) {
+
+      window.addEventListener(
+        'load',
+        () => {
+
+          navigator.serviceWorker
+            .register(
+              '/sw.js'
+            )
+            .catch(
+              (error) => {
+
+                console.warn(
+                  'Service Worker non disponible:',
+                  error
+                );
+
+              }
+            );
+
+        }
+      );
+
+    }
+
   </script>
 
 </body>
