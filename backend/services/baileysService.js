@@ -94,6 +94,11 @@ async function startWhatsappSession(firebaseUid, userEmail, businessPrompt, onQr
         }
 
         await userModel.updateUser(firebaseUid, { businessPrompt });
+      } else {
+        console.warn(
+          `Impossible de lire le numéro WhatsApp connecté pour ${firebaseUid} — ` +
+          `l'utilisateur ne sera pas créé en base et le bot ne répondra pas tant que ce n'est pas corrigé.`
+        );
       }
 
       await sessionModel.saveSessionStatus(firebaseUid, {
@@ -157,10 +162,22 @@ async function handleIncomingMessage(firebaseUid, sock, msg, businessPrompt) {
 
     if (!userMessage.trim()) return;
 
-    const { text, tokensIn, tokensOut } = await geminiService.generateReply(
-      businessPrompt,
-      userMessage
-    );
+    let text, tokensIn, tokensOut;
+    try {
+      ({ text, tokensIn, tokensOut } = await geminiService.generateReply(
+        businessPrompt,
+        userMessage
+      ));
+    } catch (geminiError) {
+      // On isole l'appel Gemini : si le modèle change de nom, est retiré, ou que la clé API
+      // est invalide, on le voit clairement dans les logs au lieu d'un échec silencieux,
+      // et le client WhatsApp reçoit un message au lieu de ne rien recevoir du tout.
+      console.error(`Erreur Gemini pour ${firebaseUid}:`, geminiError.message);
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: "Désolé, je rencontre un souci technique en ce moment. Réessayez dans un instant.",
+      });
+      return;
+    }
 
     const usage = await userModel.incrementTokenUsage(
       firebaseUid,
