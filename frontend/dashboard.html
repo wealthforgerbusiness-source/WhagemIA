@@ -494,6 +494,30 @@
   <script type="module">
     import { auth } from '/js/firebase-config.js';
     import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    // On réutilise l'app Firebase déjà initialisée pour l'auth (auth.app) afin
+    // de pouvoir aussi parler à Firestore depuis le frontend, sans reconfigurer.
+    const db = getFirestore(auth.app);
+
+    // Supprime les documents de session WhatsApp liés à l'utilisateur connecté.
+    // Adapte les noms de collections ici si les tiens sont différents.
+    async function clearWhatsappSessionInFirestore(uid) {
+      const collectionsToClear = ['sessions', 'whatsappAuth'];
+      const results = [];
+      for (const col of collectionsToClear) {
+        try {
+          await deleteDoc(doc(db, col, uid));
+          results.push({ col, ok: true });
+        } catch (err) {
+          // permission-denied si les règles Firestore n'autorisent pas l'utilisateur
+          // à supprimer ce document lui-même — voir explication fournie à l'utilisateur.
+          console.warn(`Impossible de supprimer ${col}/${uid} depuis le frontend:`, err.code || err.message);
+          results.push({ col, ok: false, error: err.code || err.message });
+        }
+      }
+      return results;
+    }
 
     const API_BASE = window.location.hostname === 'localhost'
       ? 'http://localhost:3000'
@@ -668,10 +692,23 @@
         reconnectStatus.textContent = '';
 
         try {
-          // 1. On coupe la session actuelle
+          // 1. On coupe la session actuelle côté backend
           await apiCall('/api/whatsapp/disconnect', { method: 'POST' });
 
-          // 2. On relance immédiatement une nouvelle connexion, avec le prompt déjà existant,
+          // 2. On supprime nous-mêmes les traces de session dans Firestore, pour ne
+          //    plus dépendre d'une suppression manuelle dans la console à chaque fois.
+          reconnectBtn.textContent = 'Nettoyage de la session...';
+          const clearResults = currentUser ? await clearWhatsappSessionInFirestore(currentUser.uid) : [];
+          const blockedByRules = clearResults.some(r => !r.ok && r.error === 'permission-denied');
+
+          if (blockedByRules) {
+            reconnectStatus.textContent = "Impossible de nettoyer la session automatiquement (règles Firestore trop strictes). Contacte le support ou supprime le document manuellement dans la console Firebase.";
+            reconnectBtn.disabled = false;
+            reconnectBtn.textContent = 'Déconnecter / Reconnecter WhatsApp';
+            return;
+          }
+
+          // 3. On relance immédiatement une nouvelle connexion, avec le prompt déjà existant,
           //    pour forcer le backend à générer un VRAI nouveau QR code (au lieu de recharger
           //    la session déjà connue et ne rien afficher)
           reconnectBtn.textContent = 'Génération du QR...';
@@ -799,10 +836,26 @@
         btn.disabled = true;
 
         try {
-          const data = await apiCall('/api/whatsapp/connect', {
+          let data = await apiCall('/api/whatsapp/connect', {
             method: 'POST',
             body: JSON.stringify(payload),
           });
+
+          // Si le backend répond "déjà connecté" alors qu'on est sur l'écran de
+          // configuration (donc que le frontend, lui, ne voit aucune session active),
+          // c'est qu'une vieille session traîne dans Firestore. On la nettoie nous-mêmes
+          // puis on retente une seule fois.
+          const looksAlreadyConnected = data.error && /d[ée]j[àa].{0,3}connect/i.test(data.error);
+          if (!data.success && data.status !== 'connecting' && looksAlreadyConnected && currentUser) {
+            btn.textContent = 'Nettoyage de l\'ancienne session...';
+            await clearWhatsappSessionInFirestore(currentUser.uid);
+            try { await apiCall('/api/whatsapp/disconnect', { method: 'POST' }); } catch (e) { /* on ignore si ça échoue */ }
+            btn.textContent = 'Génération...';
+            data = await apiCall('/api/whatsapp/connect', {
+              method: 'POST',
+              body: JSON.stringify(payload),
+            });
+          }
 
           if (data.success || data.status === 'connecting') {
             btn.disabled = true;
