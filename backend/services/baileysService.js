@@ -10,6 +10,7 @@ const pino = require('pino');
 
 const {
   useFirestoreAuthState,
+  clearFirestoreAuthState,
 } = require('./firestoreAuthState');
 
 const geminiService = require('./geminiService');
@@ -519,6 +520,26 @@ async function startWhatsappSession(
               firebaseUid
             );
 
+            /*
+             * Le device a été délié côté WhatsApp (logout, y compris
+             * depuis le téléphone). On nettoie les credentials Firestore
+             * pour être sûr qu'un futur démarrage régénère bien un QR.
+             */
+            try {
+              await clearFirestoreAuthState(
+                firebaseUid
+              );
+
+              console.log(
+                `🗑️ Credentials Firestore supprimées (loggedOut): ${firebaseUid}`
+              );
+            } catch (error) {
+              console.error(
+                `Erreur suppression credentials Firestore ${firebaseUid}:`,
+                error.message
+              );
+            }
+
             const callback =
               qrCallbacks.get(
                 firebaseUid
@@ -894,16 +915,39 @@ async function stopWhatsappSession(
 
   if (sock) {
     try {
-      await sock.end(
-        new Error(
-          'Session arrêtée manuellement'
-        )
+      /*
+       * VRAI LOGOUT :
+       * délie l'appareil côté WhatsApp (contrairement à sock.end()
+       * qui ferme juste la connexion locale sans rien dire à WhatsApp).
+       */
+      await sock.logout();
+
+      console.log(
+        `🔓 Logout WhatsApp effectué: ${firebaseUid}`
       );
     } catch (error) {
       console.error(
-        `Erreur fermeture socket ${firebaseUid}:`,
+        `Erreur logout WhatsApp ${firebaseUid}:`,
         error.message
       );
+
+      /*
+       * Si le logout échoue (ex: déjà déconnecté côté WhatsApp,
+       * ou socket dans un état bancal), on force quand même
+       * la fermeture locale pour ne pas laisser un socket zombie.
+       */
+      try {
+        await sock.end(
+          new Error(
+            'Session arrêtée manuellement'
+          )
+        );
+      } catch (endError) {
+        console.error(
+          `Erreur fermeture socket ${firebaseUid}:`,
+          endError.message
+        );
+      }
     }
 
     if (
@@ -915,6 +959,27 @@ async function stopWhatsappSession(
         firebaseUid
       );
     }
+  }
+
+  /*
+   * SUPPRESSION DES CREDENTIALS FIRESTORE :
+   * sans ça, même après un logout, si jamais la suppression n'a pas
+   * lieu la prochaine session peut retrouver des clés Signal orphelines.
+   * On force la suppression explicite ici, côté serveur (droits admin).
+   */
+  try {
+    await clearFirestoreAuthState(
+      firebaseUid
+    );
+
+    console.log(
+      `🗑️ Credentials Firestore supprimées: ${firebaseUid}`
+    );
+  } catch (error) {
+    console.error(
+      `Erreur suppression credentials Firestore ${firebaseUid}:`,
+      error.message
+    );
   }
 
   await sessionModel.saveSessionStatus(
