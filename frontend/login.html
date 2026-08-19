@@ -25,6 +25,24 @@
     }
 
     .login-wrap { width: 100%; max-width: 400px; text-align: center; }
+
+    .back-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 24px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .back-home:hover { background: var(--color-bg); color: var(--color-secondary); }
+
+    .back-home svg { width: 15px; height: 15px; flex-shrink: 0; }
+
     .logo-img { width: 88px; height: 88px; margin-bottom: 20px; }
     h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
     .subtitle { color: var(--color-text-muted); font-size: 15px; margin-bottom: 32px; line-height: 1.5; }
@@ -33,13 +51,16 @@
     .loading-dots { display: none; margin-top: 20px; }
     .loading-dots.active { display: block; }
     .terms { margin-top: 24px; font-size: 12px; color: var(--color-text-muted); line-height: 1.5; }
-    .back-home { display: inline-block; margin-bottom: 20px; font-size: 13px; color: var(--color-text-muted); text-decoration: none; }
   </style>
 </head>
 <body>
 
   <div class="login-wrap fade-in">
-    <a href="/index.html" class="back-home">← Retour à l'accueil</a>
+    <a href="/index.html" class="back-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      Retour à l'accueil
+    </a>
+
     <img src="/assets/logo.png" alt="WhagemIA" class="logo-img" />
     <h1>Bienvenue sur WhagemIA</h1>
     <p class="subtitle">
@@ -63,7 +84,7 @@
     <p class="terms">
       En continuant, vous acceptez que votre compte WhatsApp puisse être suspendu par Meta
       en cas d'usage automatisé. WhagemIA n'est pas affilié à WhatsApp Inc.
-      <a href="/terms.html" style="color: var(--color-secondary);">Conditions complètes</a>
+      <a href="/terms.html" style="color: var(--color-secondary); font-weight: 600;">Conditions complètes</a>
     </p>
   </div>
 
