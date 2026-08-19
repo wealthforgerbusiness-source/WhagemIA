@@ -10,6 +10,8 @@
   <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico" />
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="WhagemIA" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="/css/variables.css" />
   <link rel="stylesheet" href="/css/style.css" />
@@ -48,8 +50,30 @@
     .subtitle { color: var(--color-text-muted); font-size: 15px; margin-bottom: 32px; line-height: 1.5; }
     .google-icon { width: 20px; height: 20px; }
     #error-msg { display: none; color: var(--color-danger); font-size: 14px; margin-top: 16px; }
-    .loading-dots { display: none; margin-top: 20px; }
-    .loading-dots.active { display: block; }
+    .loading-dots {
+      display: none;
+      margin-top: 20px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 13.5px;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .loading-dots.active { display: flex; }
+    .loading-dots .spin {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(91,33,182,0.15);
+      border-top-color: var(--color-secondary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .terms { margin-top: 24px; font-size: 12px; color: var(--color-text-muted); line-height: 1.5; }
   </style>
 </head>
@@ -77,7 +101,7 @@
         </svg>
         Continuer avec Google
       </button>
-      <div id="loading-dots" class="loading-dots text-muted">Connexion en cours...</div>
+      <div id="loading-dots" class="loading-dots"><span class="spin"></span>Connexion en cours...</div>
       <p id="error-msg"></p>
     </div>
 
