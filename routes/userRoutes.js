@@ -1,354 +1,87 @@
 const express = require('express');
 const router = express.Router();
-
 const { verifyFirebaseToken } = require('../middleware/authMiddleware');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 const baileysService = require('../services/baileysService');
 
-// ============================================================
-// VERROUS PAR UTILISATEUR
-// Évite qu'un double clic OFF/ON lance plusieurs sockets
-// pour le même compte.
-// ============================================================
-const toggleLocks = new Map();
-
-async function withUserLock(firebaseUid, callback) {
-  const previousLock = toggleLocks.get(firebaseUid) || Promise.resolve();
-
-  let releaseLock;
-
-  const currentLock = new Promise((resolve) => {
-    releaseLock = resolve;
-  });
-
-  toggleLocks.set(
-    firebaseUid,
-    previousLock.then(() => currentLock)
-  );
-
-  await previousLock;
-
-  try {
-    return await callback();
-  } finally {
-    releaseLock();
-
-    // Nettoyage du lock uniquement si c'est toujours celui-ci
-    if (toggleLocks.get(firebaseUid)) {
-      toggleLocks.delete(firebaseUid);
-    }
-  }
-}
-
-
-// ============================================================
-// GET /api/user/me
-// Récupérer les informations du dashboard
-// ============================================================
+// Récupérer les infos du dashboard utilisateur (quotas, statut, etc.)
 router.get('/me', verifyFirebaseToken, async (req, res) => {
   try {
-    const firebaseUid = req.firebaseUid;
-
-    const user = await userModel.getUserById(firebaseUid);
+    const user = await userModel.getUserById(req.firebaseUid);
 
     if (!user) {
-      return res.status(404).json({
-        error: 'Utilisateur non trouvé',
-      });
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
-    const session =
-      await sessionModel.getSessionStatus(firebaseUid);
-
-    const activeSocket =
-      baileysService.getActiveSocket(firebaseUid);
+    const session = await sessionModel.getSessionStatus(req.firebaseUid);
 
     res.json({
       ...user,
-
-      session: {
-        ...(session || {}),
-        connected:
-          session?.connected === true && !!activeSocket,
-      },
+      session: session || { connected: false },
     });
   } catch (error) {
-    console.error(
-      'Erreur /me:',
-      error.message
-    );
-
-    return res.status(500).json({
-      error: 'Erreur serveur',
-    });
+    console.error('Erreur /me:', error.message);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
+// Activer / désactiver le bot manuellement depuis le dashboard
+router.post('/toggle-bot', verifyFirebaseToken, async (req, res) => {
+  try {
+    const user = await userModel.getUserById(req.firebaseUid);
 
-// ============================================================
-// POST /api/user/toggle-bot
-//
-// OFF
-//   → botEnabled false
-//   → fermeture réelle du socket
-//   → aucune reconnexion automatique
-//
-// ON
-//   → botEnabled true
-//   → utilisation des credentials Firestore
-//   → reconnexion de la session existante
-//   → pas de nouveau QR si les credentials sont valides
-// ============================================================
-router.post(
-  '/toggle-bot',
-  verifyFirebaseToken,
-  async (req, res) => {
-    const firebaseUid = req.firebaseUid;
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
 
-    return withUserLock(firebaseUid, async () => {
-      try {
-        console.log(
-          `\n========== TOGGLE BOT ${firebaseUid} ==========`
-        );
+    if (user.status === 'expired') {
+      return res.status(403).json({
+        error: 'Abonnement expiré, impossible de réactiver le bot sans paiement',
+      });
+    }
 
-        // ------------------------------------------------------
-        // RÉCUPÉRER UTILISATEUR
-        // ------------------------------------------------------
-        const user =
-          await userModel.getUserById(firebaseUid);
+    const newBotEnabled = !user.botEnabled;
 
-        if (!user) {
-          console.warn(
-            `⚠️ Utilisateur introuvable: ${firebaseUid}`
-          );
+    // Si on réactive le bot, on met à jour le timestamp pour ignorer les anciens messages
+    if (newBotEnabled) {
+      await sessionModel.setLastProcessedTimestamp(
+        req.firebaseUid,
+        new Date().toISOString()
+      );
+    }
 
-          return res.status(404).json({
-            error: 'Utilisateur non trouvé',
-          });
-        }
+    await userModel.updateUser(req.firebaseUid, { botEnabled: newBotEnabled });
 
-        // ------------------------------------------------------
-        // VÉRIFIER ABONNEMENT
-        // ------------------------------------------------------
-        if (user.status === 'expired') {
-          console.warn(
-            `⚠️ Abonnement expiré: ${firebaseUid}`
-          );
-
-          return res.status(403).json({
-            error:
-              'Abonnement expiré, impossible de réactiver le bot sans paiement',
-            botEnabled: false,
-          });
-        }
-
-        // ------------------------------------------------------
-        // NOUVEL ÉTAT
-        // ------------------------------------------------------
-        const newBotEnabled = !Boolean(user.botEnabled);
-
-        console.log(
-          `👤 ${firebaseUid} : botEnabled ${user.botEnabled} → ${newBotEnabled}`
-        );
-
-
-        // ======================================================
-        // ACTIVATION
-        // ======================================================
-        if (newBotEnabled === true) {
-          console.log(
-            `🟢 Activation du bot pour ${firebaseUid}`
-          );
-
-          // ----------------------------------------------------
-          // Ignorer les anciens messages
-          // ----------------------------------------------------
-          await sessionModel.setLastProcessedTimestamp(
-            firebaseUid,
-            new Date().toISOString()
-          );
-
-          // ----------------------------------------------------
-          // Activer le bot AVANT le démarrage
-          // ----------------------------------------------------
-          await userModel.updateUser(
-            firebaseUid,
-            {
-              botEnabled: true,
-            }
-          );
-
-          // ----------------------------------------------------
-          // Vérifier si un socket existe déjà
-          // ----------------------------------------------------
-          const existingSocket =
-            baileysService.getActiveSocket(firebaseUid);
-
-          if (existingSocket) {
-            console.log(
-              `✅ Socket déjà présent pour ${firebaseUid}`
-            );
-
-            return res.json({
-              success: true,
-              botEnabled: true,
-              connected: true,
-              status: 'connected',
-              message: 'Bot déjà connecté à WhatsApp.',
-            });
-          }
-
-          // ----------------------------------------------------
-          // Aucun socket → démarrage / reconnexion
-          // ----------------------------------------------------
-          console.log(
-            `📱 Aucun socket pour ${firebaseUid}`
-          );
-
-          console.log(
-            `🔄 Tentative de reconnexion WhatsApp avec Firestore...`
-          );
-
-          try {
-            await baileysService.startWhatsappSession(
-              firebaseUid,
-              user.email,
-              user.businessPrompt || '',
-              null,
-              false,
-              null
-            );
-
-            /*
-             * IMPORTANT :
-             * startWhatsappSession() crée le socket mais
-             * la connexion WhatsApp peut prendre quelques secondes.
-             *
-             * On ne ment donc pas au frontend avec connected:true.
-             */
-            console.log(
-              `⏳ Session WhatsApp lancée pour ${firebaseUid}, connexion en cours...`
-            );
-
-            return res.json({
-              success: true,
-              botEnabled: true,
-              connected: false,
-              status: 'connecting',
-              message:
-                'Bot activé. Connexion WhatsApp en cours...',
-            });
-          } catch (error) {
-            console.error(
-              `❌ Échec démarrage WhatsApp ${firebaseUid}:`,
-              error.message
-            );
-
-            // Si le démarrage échoue immédiatement,
-            // on remet le bot OFF pour éviter un état incohérent.
-            await userModel.updateUser(
-              firebaseUid,
-              {
-                botEnabled: false,
-              }
-            );
-
-            await sessionModel.saveSessionStatus(
-              firebaseUid,
-              {
-                connected: false,
-              }
-            );
-
-            return res.status(500).json({
-              success: false,
-              botEnabled: false,
-              connected: false,
-              status: 'error',
-              error:
-                'Impossible de démarrer la connexion WhatsApp.',
-            });
-          }
-        }
-
-
-        // ======================================================
-        // DÉSACTIVATION
-        // ======================================================
-        console.log(
-          `🔴 Désactivation du bot pour ${firebaseUid}`
-        );
-
-        // ------------------------------------------------------
-        // Désactiver le bot en base
-        // ------------------------------------------------------
-        await userModel.updateUser(
-          firebaseUid,
-          {
-            botEnabled: false,
-          }
-        );
-
-        // ------------------------------------------------------
-        // Arrêter réellement WhatsApp
-        // ------------------------------------------------------
-        try {
-          console.log(
-            `🛑 Arrêt du socket WhatsApp pour ${firebaseUid}...`
-          );
-
-          await baileysService.stopWhatsappSession(
-            firebaseUid
-          );
-
-          console.log(
-            `✅ Socket WhatsApp arrêté pour ${firebaseUid}`
-          );
-        } catch (error) {
-          console.error(
-            `❌ Erreur arrêt WhatsApp ${firebaseUid}:`,
-            error.message
-          );
-        }
-
-        // ------------------------------------------------------
-        // Mettre Firestore à jour
-        // ------------------------------------------------------
-        await sessionModel.saveSessionStatus(
-          firebaseUid,
-          {
-            connected: false,
-            lastActiveAt:
-              new Date().toISOString(),
-          }
-        );
-
-        console.log(
-          `✅ Bot complètement désactivé pour ${firebaseUid}`
-        );
-
-        return res.json({
-          success: true,
-          botEnabled: false,
-          connected: false,
-          status: 'disconnected',
-          message: 'Bot désactivé.',
-        });
-      } catch (error) {
-        console.error(
-          `❌ Erreur /toggle-bot pour ${firebaseUid}:`,
-          error
-        );
-
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur serveur',
-        });
-      }
-    });
+    res.json({ botEnabled: newBotEnabled });
+  } catch (error) {
+    console.error('Erreur /toggle-bot:', error.message);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
-);
+});
 
+// Modifier les instructions de l'IA après la connexion initiale
+router.patch('/prompt', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { businessPrompt } = req.body;
+
+    if (!businessPrompt || businessPrompt.trim().length < 10) {
+      return res.status(400).json({
+        error: 'Description de l\'entreprise requise (au moins 10 caractères)',
+      });
+    }
+
+    await userModel.updateUser(req.firebaseUid, { businessPrompt: businessPrompt.trim() });
+
+    // Si une session WhatsApp est déjà active, on met à jour le prompt utilisé en mémoire
+    // tout de suite, sans avoir besoin de redémarrer la connexion.
+    baileysService.updateBusinessPrompt(req.firebaseUid, businessPrompt.trim());
+
+    res.json({ businessPrompt: businessPrompt.trim() });
+  } catch (error) {
+    console.error('Erreur /prompt:', error.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 
 module.exports = router;
