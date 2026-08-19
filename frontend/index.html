@@ -25,6 +25,8 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png" />
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="WhagemIA" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="/css/variables.css" />
   <link rel="stylesheet" href="/css/style.css" />
@@ -279,9 +281,129 @@
       transition: opacity 0.7s ease, transform 0.7s ease;
     }
     .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* Écran de chargement à la marque WhagemIA, affiché instantanément à l'ouverture
+       (remplace le texte générique dans la police système par défaut du téléphone) */
+    #app-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: radial-gradient(circle at 50% 35%, #16213E 0%, #0F0F1A 70%);
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    #app-splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+    #app-splash img {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      animation: splash-pulse 1.6s ease-in-out infinite;
+      filter: drop-shadow(0 6px 20px rgba(37,211,102,0.35));
+    }
+    #app-splash .splash-name {
+      font-family: var(--font-main);
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #25D366, #7C3AED);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    #app-splash .splash-dots { display: flex; gap: 6px; }
+    #app-splash .splash-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #25D366;
+      animation: splash-blink 1.2s ease-in-out infinite;
+    }
+    #app-splash .splash-dots span:nth-child(2) { animation-delay: 0.2s; background: #7C3AED; }
+    #app-splash .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes splash-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.85; }
+    }
+    @keyframes splash-blink {
+      0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    /* Section "Comment installer" — galerie d'étapes qui défile horizontalement */
+    .install-scroller {
+      display: flex;
+      gap: 18px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding: 8px 24px 20px;
+      margin: 0 -24px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .install-scroller::-webkit-scrollbar { display: none; }
+
+    .install-step {
+      flex: 0 0 auto;
+      width: 220px;
+      scroll-snap-align: start;
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .install-step:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+    .install-step img {
+      width: 100%;
+      aspect-ratio: 9 / 19.5;
+      object-fit: cover;
+      display: block;
+      background: var(--color-bg-dark);
+    }
+
+    .install-step-body { padding: 14px 16px 18px; }
+
+    .install-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .install-step h4 { font-size: 14.5px; font-weight: 700; margin-bottom: 6px; }
+    .install-step p { font-size: 12.5px; color: var(--color-text-muted); line-height: 1.5; }
+
+    .install-scroller-hint {
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--color-text-muted);
+      margin-top: 4px;
+    }
+
+    @media (min-width: 760px) {
+      .install-scroller { justify-content: center; flex-wrap: nowrap; }
+    }
   </style>
 </head>
 <body>
+
+  <div id="app-splash">
+    <img src="/assets/logo.png" alt="WhagemIA" />
+    <span class="splash-name">WhagemIA</span>
+    <div class="splash-dots"><span></span><span></span><span></span></div>
+  </div>
 
   <nav>
     <div class="nav-logo">
@@ -354,6 +476,61 @@
       </div>
       <div class="feature-img"><img src="/assets/illustration-securite.png" alt="Sécurité et contrôle" /></div>
     </div>
+  </section>
+
+  <section class="section" id="installer" style="padding-top: 0;">
+    <div class="section-header reveal">
+      <h2>Comment installer WhagemIA sur ton téléphone</h2>
+      <p>Fais glisser vers la gauche pour voir toutes les étapes, du menu du navigateur jusqu'à l'icône sur ton écran d'accueil.</p>
+    </div>
+
+    <div class="install-scroller reveal">
+      <div class="install-step">
+        <img src="/assets/install-steps/01-ouvrir-menu.png" alt="Ouvrir le menu du navigateur" loading="lazy" />
+        <div class="install-step-body">
+          <span class="install-step-num">1</span>
+          <h4>Ouvre le menu</h4>
+          <p>Sur la page WhagemIA, appuie sur les trois points (⋮) en haut à droite de ton navigateur.</p>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/02-ajouter-la-page.png" alt="Appuyer sur Ajouter la page à" loading="lazy" />
+        <div class="install-step-body">
+          <span class="install-step-num">2</span>
+          <h4>Ajoute la page</h4>
+          <p>Dans le menu qui s'ouvre, appuie sur « Ajouter la page à ».</p>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/03-installer-application-web.png" alt="Installer en tant qu'application Web" loading="lazy" />
+        <div class="install-step-body">
+          <span class="install-step-num">3</span>
+          <h4>Installe l'application</h4>
+          <p>Choisis « Installer en tant qu'application Web » dans la liste proposée.</p>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/04-autoriser-installation.png" alt="Autoriser l'installation malgré l'avertissement Play Protect" loading="lazy" />
+        <div class="install-step-body">
+          <span class="install-step-num">4</span>
+          <h4>Confirme l'installation</h4>
+          <p>Android peut afficher un avertissement de vérification : c'est normal, appuie simplement sur « OK » ou « Installer quand même ».</p>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/05-app-installee.png" alt="Icône WhagemIA installée sur l'écran d'accueil" loading="lazy" />
+        <div class="install-step-body">
+          <span class="install-step-num">5</span>
+          <h4>C'est prêt</h4>
+          <p>L'icône WhagemIA apparaît sur ton écran d'accueil, prête à ouvrir comme une vraie application.</p>
+        </div>
+      </div>
+    </div>
+    <p class="install-scroller-hint reveal">👉 Fais glisser pour voir les 5 étapes</p>
   </section>
 
   <section class="section" id="pricing">
@@ -443,9 +620,26 @@
     import { auth } from '/js/firebase-config.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
+    function hideSplash() {
+      const el = document.getElementById('app-splash');
+      if (!el) return;
+      el.classList.add('hide');
+      setTimeout(() => el.remove(), 450);
+    }
+
     onAuthStateChanged(auth, (user) => {
-      if (user) window.location.href = '/dashboard.html';
+      if (user) {
+        window.location.href = '/dashboard.html';
+        return;
+      }
+      // Pas connecté (ou pas encore de compte) : on reste sur la page d'accueil
+      // au lieu d'être envoyé directement vers l'écran de connexion.
+      hideSplash();
     });
+
+    // Filet de sécurité : si Firebase met du temps à répondre, on n'affiche pas
+    // le splash indéfiniment.
+    setTimeout(hideSplash, 4000);
 
     const revealEls = document.querySelectorAll('.reveal');
     const observer = new IntersectionObserver((entries) => {
