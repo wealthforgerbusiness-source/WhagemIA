@@ -7,9 +7,11 @@ const {
 const { Boom } = require('@hapi/boom');
 const crypto = require('crypto');
 const pino = require('pino');
-const QRCode = require('qrcode');
 
-const { useFirestoreAuthState } = require('./firestoreAuthState');
+const {
+  useFirestoreAuthState,
+} = require('./firestoreAuthState');
+
 const geminiService = require('./geminiService');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
@@ -20,12 +22,8 @@ const businessPrompts = new Map();
 
 const manuallyStopped = new Set();
 const startingSessions = new Set();
+const connectedSockets = new Set();
 
-/*
-|--------------------------------------------------------------------------
-| DÉMARRAGE SESSION WHATSAPP
-|--------------------------------------------------------------------------
-*/
 async function startWhatsappSession(
   firebaseUid,
   userEmail,
@@ -34,10 +32,6 @@ async function startWhatsappSession(
   connectionMethod = 'qr',
   phoneNumber = null
 ) {
-  /*
-   * Évite plusieurs connexions simultanées
-   * pour le même utilisateur.
-   */
   if (startingSessions.has(firebaseUid)) {
     console.log(
       `⏳ Session déjà en démarrage: ${firebaseUid}`
@@ -46,25 +40,18 @@ async function startWhatsappSession(
     return activeSockets.get(firebaseUid) || null;
   }
 
-  /*
-   * Si une socket existe déjà, on la réutilise.
-   */
   const existingSocket =
     activeSockets.get(firebaseUid);
 
   if (existingSocket) {
     console.log(
-      `✅ Socket déjà actif: ${firebaseUid}`
+      `⚠️ Socket déjà présent: ${firebaseUid}`
     );
 
     return existingSocket;
   }
 
   startingSessions.add(firebaseUid);
-
-  /*
-   * Une nouvelle connexion annule un arrêt manuel précédent.
-   */
   manuallyStopped.delete(firebaseUid);
 
   try {
@@ -72,18 +59,10 @@ async function startWhatsappSession(
       `🚀 Démarrage WhatsApp ${firebaseUid} | méthode=${connectionMethod}`
     );
 
-    /*
-     * Auth Firestore.
-     *
-     * Les credentials WhatsApp ne sont PAS stockés
-     * sur le disque Render.
-     */
     const {
       state,
       saveCreds,
-    } = await useFirestoreAuthState(
-      firebaseUid
-    );
+    } = await useFirestoreAuthState(firebaseUid);
 
     const { version } =
       await fetchLatestBaileysVersion();
@@ -94,8 +73,19 @@ async function startWhatsappSession(
     );
 
     /*
-     * Création socket Baileys.
+     * IMPORTANT :
+     * On considère la session comme NON CONNECTÉE
+     * tant que connection !== 'open'.
      */
+    connectedSockets.delete(firebaseUid);
+
+    await sessionModel.saveSessionStatus(
+      firebaseUid,
+      {
+        connected: false,
+      }
+    );
+
     const sock = makeWASocket({
       version,
       auth: state,
@@ -115,9 +105,6 @@ async function startWhatsappSession(
       sock
     );
 
-    /*
-     * Sauvegarde callback QR / pairing.
-     */
     if (onQrCode) {
       qrCallbacks.set(
         firebaseUid,
@@ -126,8 +113,7 @@ async function startWhatsappSession(
     }
 
     /*
-     * Sauvegarde permanente des credentials
-     * dans Firestore.
+     * Sauvegarde des credentials.
      */
     sock.ev.on(
       'creds.update',
@@ -136,11 +122,11 @@ async function startWhatsappSession(
           await saveCreds();
 
           console.log(
-            `💾 Credentials WhatsApp sauvegardées: ${firebaseUid}`
+            `💾 Credentials Firestore sauvegardées: ${firebaseUid}`
           );
         } catch (error) {
           console.error(
-            `❌ Erreur sauvegarde Firestore ${firebaseUid}:`,
+            `❌ Erreur sauvegarde credentials ${firebaseUid}:`,
             error.message
           );
         }
@@ -149,11 +135,6 @@ async function startWhatsappSession(
 
     let pairingRequested = false;
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONNECTION UPDATE
-    |--------------------------------------------------------------------------
-    */
     sock.ev.on(
       'connection.update',
       async (update) => {
@@ -164,10 +145,16 @@ async function startWhatsappSession(
         } = update;
 
         /*
-        |--------------------------------------------------------------------------
-        | QR CODE
-        |--------------------------------------------------------------------------
-        */
+         * =====================================================
+         * QR CODE
+         * =====================================================
+         *
+         * IMPORTANT :
+         * On transmet le QR BRUT.
+         *
+         * La route API ne doit PAS refaire QRCode.toDataURL()
+         * dessus.
+         */
         if (
           qr &&
           connectionMethod === 'qr'
@@ -176,60 +163,34 @@ async function startWhatsappSession(
             `📲 QR CODE généré pour ${firebaseUid}`
           );
 
-          try {
-            /*
-             * Conversion du QR Baileys en image
-             * directement affichable dans <img src="">
-             */
-            const qrDataUrl =
-              await QRCode.toDataURL(qr, {
-                errorCorrectionLevel: 'M',
-                margin: 2,
-                width: 360,
-              });
+          const callback =
+            qrCallbacks.get(firebaseUid);
 
-            const callback =
-              qrCallbacks.get(
-                firebaseUid
-              );
-
-            if (callback) {
+          if (callback) {
+            try {
               await callback(
-                qrDataUrl,
+                qr,
                 null,
                 null
               );
-            }
 
-            console.log(
-              `✅ QR envoyé au dashboard: ${firebaseUid}`
-            );
-          } catch (error) {
-            console.error(
-              `❌ Erreur génération image QR ${firebaseUid}:`,
-              error.message
-            );
-
-            const callback =
-              qrCallbacks.get(
-                firebaseUid
+              console.log(
+                `✅ QR transmis au dashboard: ${firebaseUid}`
               );
-
-            if (callback) {
-              await callback(
-                null,
-                null,
-                'QR_GENERATION_ERROR'
+            } catch (error) {
+              console.error(
+                `❌ Erreur transmission QR ${firebaseUid}:`,
+                error.message
               );
             }
           }
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | CODE DE PAIRAGE
-        |--------------------------------------------------------------------------
-        */
+         * =====================================================
+         * CODE DE PAIRAGE
+         * =====================================================
+         */
         if (
           connectionMethod === 'pairing' &&
           phoneNumber &&
@@ -270,9 +231,7 @@ async function startWhatsappSession(
             );
 
             const callback =
-              qrCallbacks.get(
-                firebaseUid
-              );
+              qrCallbacks.get(firebaseUid);
 
             if (callback) {
               await callback(
@@ -288,9 +247,7 @@ async function startWhatsappSession(
             );
 
             const callback =
-              qrCallbacks.get(
-                firebaseUid
-              );
+              qrCallbacks.get(firebaseUid);
 
             if (callback) {
               await callback(
@@ -305,10 +262,10 @@ async function startWhatsappSession(
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | CONNEXION OUVERTE
-        |--------------------------------------------------------------------------
-        */
+         * =====================================================
+         * CONNEXION OUVERTE
+         * =====================================================
+         */
         if (
           connection === 'open'
         ) {
@@ -316,10 +273,6 @@ async function startWhatsappSession(
             `🟢 WhatsApp connecté: ${firebaseUid}`
           );
 
-          /*
-           * Vérifie que cette socket est toujours
-           * la socket active.
-           */
           if (
             activeSockets.get(
               firebaseUid
@@ -333,115 +286,114 @@ async function startWhatsappSession(
           }
 
           try {
-            /*
-             * Récupérer numéro WhatsApp.
-             */
             const connectedNumber =
               sock.user?.id
                 ?.split(':')[0] ||
               sock.user?.id
                 ?.split('@')[0];
 
+            if (!connectedNumber) {
+              throw new Error(
+                'Numéro WhatsApp impossible à récupérer'
+              );
+            }
+
+            const whatsappNumberHash =
+              crypto
+                .createHash('sha256')
+                .update(
+                  connectedNumber
+                )
+                .digest('hex');
+
+            const existingByNumber =
+              await userModel.findUserByWhatsappHash(
+                whatsappNumberHash
+              );
+
             if (
-              !connectedNumber
+              existingByNumber &&
+              existingByNumber.id !==
+                firebaseUid
             ) {
               console.warn(
-                `⚠️ Numéro WhatsApp impossible à récupérer: ${firebaseUid}`
+                `⚠️ Numéro WhatsApp déjà utilisé: ${firebaseUid}`
               );
+
+              manuallyStopped.add(
+                firebaseUid
+              );
+
+              try {
+                await sock.logout();
+              } catch (error) {
+                console.error(
+                  `Erreur logout numéro déjà utilisé ${firebaseUid}:`,
+                  error.message
+                );
+              }
+
+              activeSockets.delete(
+                firebaseUid
+              );
+
+              connectedSockets.delete(
+                firebaseUid
+              );
+
+              await sessionModel.saveSessionStatus(
+                firebaseUid,
+                {
+                  connected: false,
+                }
+              );
+
+              const callback =
+                qrCallbacks.get(
+                  firebaseUid
+                );
+
+              if (callback) {
+                await callback(
+                  null,
+                  null,
+                  'NUMBER_ALREADY_USED'
+                );
+              }
+
+              return;
+            }
+
+            let user =
+              await userModel.getUserById(
+                firebaseUid
+              );
+
+            if (!user) {
+              await userModel.createUser({
+                firebaseUid,
+                email: userEmail,
+                whatsappNumberHash,
+              });
             } else {
-              const whatsappNumberHash =
-                crypto
-                  .createHash('sha256')
-                  .update(
-                    connectedNumber
-                  )
-                  .digest('hex');
-
-              /*
-               * Anti-abus.
-               */
-              const existingByNumber =
-                await userModel.findUserByWhatsappHash(
-                  whatsappNumberHash
-                );
-
-              if (
-                existingByNumber &&
-                existingByNumber.id !==
-                  firebaseUid
-              ) {
-                console.warn(
-                  `⚠️ Numéro WhatsApp déjà utilisé: ${firebaseUid}`
-                );
-
-                manuallyStopped.add(
-                  firebaseUid
-                );
-
-                try {
-                  await sock.logout();
-                } catch (error) {
-                  console.error(
-                    `Erreur logout numéro déjà utilisé ${firebaseUid}:`,
-                    error.message
-                  );
-                }
-
-                if (
-                  activeSockets.get(
-                    firebaseUid
-                  ) === sock
-                ) {
-                  activeSockets.delete(
-                    firebaseUid
-                  );
-                }
-
-                const callback =
-                  qrCallbacks.get(
-                    firebaseUid
-                  );
-
-                if (callback) {
-                  await callback(
-                    null,
-                    null,
-                    'NUMBER_ALREADY_USED'
-                  );
-                }
-
-                return;
-              }
-
-              /*
-               * Créer ou mettre à jour utilisateur.
-               */
-              let user =
-                await userModel.getUserById(
-                  firebaseUid
-                );
-
-              if (!user) {
-                await userModel.createUser({
-                  firebaseUid,
-                  email: userEmail,
+              await userModel.updateUser(
+                firebaseUid,
+                {
                   whatsappNumberHash,
-                });
-              } else {
-                await userModel.updateUser(
-                  firebaseUid,
-                  {
-                    whatsappNumberHash,
-                    businessPrompt:
-                      businessPrompt || '',
-                  }
-                );
-              }
+                  businessPrompt:
+                    businessPrompt || '',
+                }
+              );
             }
 
             /*
-             * Statut Firestore.
+             * C'EST ICI SEULEMENT qu'on passe
+             * connected à true.
              */
+            connectedSockets.add(
+              firebaseUid
+            );
+
             await sessionModel.saveSessionStatus(
               firebaseUid,
               {
@@ -451,17 +403,11 @@ async function startWhatsappSession(
               }
             );
 
-            /*
-             * Ignorer les anciens messages.
-             */
             await sessionModel.setLastProcessedTimestamp(
               firebaseUid,
               new Date().toISOString()
             );
 
-            /*
-             * La connexion est terminée.
-             */
             qrCallbacks.delete(
               firebaseUid
             );
@@ -473,6 +419,17 @@ async function startWhatsappSession(
             console.error(
               `❌ Erreur après connexion ${firebaseUid}:`,
               error.message
+            );
+
+            connectedSockets.delete(
+              firebaseUid
+            );
+
+            await sessionModel.saveSessionStatus(
+              firebaseUid,
+              {
+                connected: false,
+              }
             );
 
             const callback =
@@ -491,10 +448,10 @@ async function startWhatsappSession(
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | CONNEXION FERMÉE
-        |--------------------------------------------------------------------------
-        */
+         * =====================================================
+         * CONNEXION FERMÉE
+         * =====================================================
+         */
         if (
           connection === 'close'
         ) {
@@ -507,9 +464,10 @@ async function startWhatsappSession(
             `🔴 Connexion WhatsApp fermée: ${firebaseUid} | code=${statusCode}`
           );
 
-          /*
-           * Retirer uniquement cette socket.
-           */
+          connectedSockets.delete(
+            firebaseUid
+          );
+
           if (
             activeSockets.get(
               firebaseUid
@@ -528,10 +486,8 @@ async function startWhatsappSession(
           );
 
           /*
-          |--------------------------------------------------------------------------
-          | ARRÊT MANUEL
-          |--------------------------------------------------------------------------
-          */
+           * ARRÊT MANUEL
+           */
           if (
             manuallyStopped.has(
               firebaseUid
@@ -549,16 +505,14 @@ async function startWhatsappSession(
           }
 
           /*
-          |--------------------------------------------------------------------------
-          | SESSION WHATSAPP EXPIRÉE / LOGGED OUT
-          |--------------------------------------------------------------------------
-          */
+           * SESSION LOGGED OUT
+           */
           if (
             statusCode ===
             DisconnectReason.loggedOut
           ) {
             console.log(
-              `🚪 Session WhatsApp expirée/déconnectée définitivement: ${firebaseUid}`
+              `🚪 Session WhatsApp déconnectée définitivement: ${firebaseUid}`
             );
 
             businessPrompts.delete(
@@ -586,14 +540,8 @@ async function startWhatsappSession(
           }
 
           /*
-          |--------------------------------------------------------------------------
-          | AUTRE DÉCONNEXION
-          |--------------------------------------------------------------------------
-          */
-          console.log(
-            `🔄 Tentative de reconnexion automatique: ${firebaseUid}`
-          );
-
+           * RECONNEXION AUTOMATIQUE
+           */
           try {
             const user =
               await userModel.getUserById(
@@ -601,19 +549,10 @@ async function startWhatsappSession(
               );
 
             if (!user) {
-              console.warn(
-                `⚠️ Utilisateur introuvable: ${firebaseUid}`
-              );
-
               return;
             }
 
-            /*
-             * Ne pas reconnecter un bot désactivé.
-             */
-            if (
-              !user.botEnabled
-            ) {
+            if (!user.botEnabled) {
               console.log(
                 `🛑 Bot désactivé, aucune reconnexion: ${firebaseUid}`
               );
@@ -621,12 +560,8 @@ async function startWhatsappSession(
               return;
             }
 
-            /*
-             * Ne pas reconnecter un abonnement expiré.
-             */
             if (
-              user.status ===
-              'expired'
+              user.status === 'expired'
             ) {
               console.log(
                 `⏭️ Abonnement expiré, aucune reconnexion: ${firebaseUid}`
@@ -635,10 +570,6 @@ async function startWhatsappSession(
               return;
             }
 
-            /*
-             * Petit délai pour éviter une boucle
-             * de reconnexion trop agressive.
-             */
             setTimeout(
               async () => {
                 try {
@@ -687,10 +618,10 @@ async function startWhatsappSession(
     );
 
     /*
-    |--------------------------------------------------------------------------
-    | MESSAGES WHATSAPP
-    |--------------------------------------------------------------------------
-    */
+     * =====================================================
+     * MESSAGES
+     * =====================================================
+     */
     sock.ev.on(
       'messages.upsert',
       async ({
@@ -720,14 +651,18 @@ async function startWhatsappSession(
           return;
         }
 
-        /*
-         * Vérifie que cette socket est toujours
-         * la socket active.
-         */
         if (
           activeSockets.get(
             firebaseUid
           ) !== sock
+        ) {
+          return;
+        }
+
+        if (
+          !connectedSockets.has(
+            firebaseUid
+          )
         ) {
           return;
         }
@@ -759,6 +694,10 @@ async function startWhatsappSession(
       firebaseUid
     );
 
+    connectedSockets.delete(
+      firebaseUid
+    );
+
     throw error;
   } finally {
     startingSessions.delete(
@@ -767,11 +706,6 @@ async function startWhatsappSession(
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| TRAITEMENT DES MESSAGES
-|--------------------------------------------------------------------------
-*/
 async function handleIncomingMessage(
   firebaseUid,
   sock,
@@ -788,9 +722,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Bot désactivé ou abonnement expiré.
-     */
     if (
       !user.botEnabled ||
       user.status === 'expired'
@@ -798,9 +729,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Vérification quota AVANT Gemini.
-     */
     const tokensInUsed =
       Number(
         user.tokensInUsed || 0
@@ -822,10 +750,8 @@ async function handleIncomingMessage(
       );
 
     if (
-      tokensInUsed >=
-        tokensInLimit ||
-      tokensOutUsed >=
-        tokensOutLimit
+      tokensInUsed >= tokensInLimit ||
+      tokensOutUsed >= tokensOutLimit
     ) {
       await userModel.updateUser(
         firebaseUid,
@@ -846,9 +772,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Éviter de traiter les anciens messages.
-     */
     const lastProcessed =
       await sessionModel.getLastProcessedTimestamp(
         firebaseUid
@@ -869,9 +792,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Texte utilisateur.
-     */
     const userMessage =
       msg.message
         .conversation ||
@@ -886,9 +806,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Gemini.
-     */
     let text;
     let tokensIn;
     let tokensOut;
@@ -920,9 +837,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Comptabilisation tokens.
-     */
     const usage =
       await userModel.incrementTokenUsage(
         firebaseUid,
@@ -944,9 +858,6 @@ async function handleIncomingMessage(
       return;
     }
 
-    /*
-     * Réponse WhatsApp.
-     */
     await sock.sendMessage(
       msg.key.remoteJid,
       {
@@ -961,11 +872,6 @@ async function handleIncomingMessage(
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| ARRÊTER SESSION
-|--------------------------------------------------------------------------
-*/
 async function stopWhatsappSession(
   firebaseUid
 ) {
@@ -973,9 +879,6 @@ async function stopWhatsappSession(
     `🛑 Arrêt demandé pour ${firebaseUid}`
   );
 
-  /*
-   * Empêche le reconnect automatique.
-   */
   manuallyStopped.add(
     firebaseUid
   );
@@ -984,6 +887,10 @@ async function stopWhatsappSession(
     activeSockets.get(
       firebaseUid
     );
+
+  connectedSockets.delete(
+    firebaseUid
+  );
 
   if (sock) {
     try {
@@ -1022,11 +929,6 @@ async function stopWhatsappSession(
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| SOCKET ACTIF
-|--------------------------------------------------------------------------
-*/
 function getActiveSocket(
   firebaseUid
 ) {
@@ -1037,11 +939,14 @@ function getActiveSocket(
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| RECONNEXION AU DÉMARRAGE DU SERVEUR
-|--------------------------------------------------------------------------
-*/
+function isWhatsappConnected(
+  firebaseUid
+) {
+  return connectedSockets.has(
+    firebaseUid
+  );
+}
+
 async function reconnectAllActiveSessions() {
   console.log(
     '🔄 Recherche des sessions WhatsApp à reconnecter...'
@@ -1078,9 +983,7 @@ async function reconnectAllActiveSessions() {
         continue;
       }
 
-      if (
-        !user.botEnabled
-      ) {
+      if (!user.botEnabled) {
         console.log(
           `⏭️ Bot désactivé: ${firebaseUid}`
         );
@@ -1089,8 +992,7 @@ async function reconnectAllActiveSessions() {
       }
 
       if (
-        user.status ===
-        'expired'
+        user.status === 'expired'
       ) {
         console.log(
           `⏭️ Abonnement expiré: ${firebaseUid}`
@@ -1102,8 +1004,7 @@ async function reconnectAllActiveSessions() {
       await startWhatsappSession(
         firebaseUid,
         user.email,
-        user.businessPrompt ||
-          '',
+        user.businessPrompt || '',
         null,
         'qr',
         null
@@ -1125,5 +1026,6 @@ module.exports = {
   startWhatsappSession,
   stopWhatsappSession,
   getActiveSocket,
+  isWhatsappConnected,
   reconnectAllActiveSessions,
 };
