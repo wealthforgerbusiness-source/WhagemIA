@@ -21,7 +21,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px;
+      padding: 14px 20px;
       background: var(--color-surface);
       box-shadow: var(--shadow-sm);
       position: sticky;
@@ -30,28 +30,61 @@
     }
 
     .topbar-logo { display: flex; align-items: center; gap: 10px; }
-    .topbar-logo img { width: 32px; height: 32px; }
-    .topbar-logo span { font-weight: 700; font-size: 16px; }
+    .topbar-logo img { width: 30px; height: 30px; }
+    .topbar-logo span { font-weight: 700; font-size: 15px; }
 
-    .logout-icon {
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--color-secondary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 13px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .user-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .logout-btn {
       background: none;
       border: none;
       cursor: pointer;
       color: var(--color-text-muted);
-      font-size: 14px;
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s ease, color 0.2s ease;
     }
+
+    .logout-btn:hover { background: var(--color-bg); color: var(--color-danger); }
+    .logout-btn svg { width: 18px; height: 18px; }
 
     .content { max-width: 480px; margin: 0 auto; padding: 20px; }
 
-    .setup-card {
-      text-align: center;
-      padding: 32px 24px;
-    }
+    .setup-card { text-align: center; padding: 32px 24px; }
 
-    .setup-card img.illustration {
-      width: 140px;
-      margin-bottom: 20px;
-    }
+    .setup-card img.illustration { width: 140px; margin-bottom: 20px; }
 
     textarea#business-prompt {
       width: 100%;
@@ -70,10 +103,54 @@
       border-color: var(--color-secondary);
     }
 
-    #qr-container {
-      display: none;
-      margin-top: 20px;
+    .connect-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      background: var(--color-bg);
+      padding: 4px;
+      border-radius: var(--radius-md);
     }
+
+    .connect-tab {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .connect-tab.active {
+      background: var(--color-surface);
+      color: var(--color-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    #phone-input-wrap { display: none; margin-bottom: 16px; text-align: left; }
+
+    #phone-input-wrap label {
+      display: block;
+      font-size: 13px;
+      color: var(--color-text-muted);
+      margin-bottom: 6px;
+    }
+
+    #phone-number {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--color-border);
+      font-size: 14px;
+    }
+
+    #phone-number:focus { outline: none; border-color: var(--color-secondary); }
+
+    #qr-container, #pairing-container { display: none; margin-top: 20px; }
 
     #qr-container img {
       width: 220px;
@@ -81,6 +158,16 @@
       border-radius: var(--radius-md);
       border: 8px solid white;
       box-shadow: var(--shadow-lg);
+    }
+
+    .pairing-code-display {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: var(--color-secondary);
+      background: var(--color-bg);
+      padding: 20px;
+      border-radius: var(--radius-md);
     }
 
     .status-card {
@@ -172,10 +259,27 @@
       margin-bottom: 20px;
     }
 
-    .upgrade-btn {
-      width: 100%;
-      margin-top: 8px;
+    .icon-lightning {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      background-color: var(--color-secondary);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'%3E%3C/polygon%3E%3C/svg%3E") no-repeat center;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'%3E%3C/polygon%3E%3C/svg%3E") no-repeat center;
     }
+
+    .icon-warning {
+      width: 15px;
+      height: 15px;
+      display: inline-block;
+      background-color: var(--color-danger);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'%3E%3C/path%3E%3Cline x1='12' y1='9' x2='12' y2='13'%3E%3C/line%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'%3E%3C/path%3E%3Cline x1='12' y1='9' x2='12' y2='13'%3E%3C/line%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
+      vertical-align: -2px;
+      margin-right: 6px;
+    }
+
+    .upgrade-btn { width: 100%; margin-top: 8px; }
 
     .hidden { display: none !important; }
 
@@ -196,7 +300,13 @@
       <img src="/assets/logo.png" alt="WhagemIA" />
       <span>WhagemIA</span>
     </div>
-    <button class="logout-icon" id="logout-btn">Déconnexion</button>
+    <div class="topbar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-name"></span>
+      <button class="logout-btn" id="logout-btn" aria-label="Déconnexion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
   </div>
 
   <div class="content">
@@ -212,6 +322,16 @@
 
       <textarea id="business-prompt" placeholder="Ex : Je vends des vêtements pour femmes à Kinshasa. Livraison sous 48h. Paiement Mobile Money uniquement."></textarea>
 
+      <div class="connect-tabs">
+        <button class="connect-tab active" id="tab-qr" type="button">QR code (PC)</button>
+        <button class="connect-tab" id="tab-pairing" type="button">Un seul téléphone</button>
+      </div>
+
+      <div id="phone-input-wrap">
+        <label for="phone-number">Numéro WhatsApp (avec indicatif, ex : 243...)</label>
+        <input type="tel" id="phone-number" placeholder="243812345678" />
+      </div>
+
       <button id="start-connection-btn" class="btn btn-primary" style="width: 100%;">
         Générer le QR code
       </button>
@@ -220,6 +340,13 @@
         <img id="qr-image" src="" alt="QR Code WhatsApp" />
         <p class="text-muted" style="margin-top: 14px;">
           Ouvrez WhatsApp → Paramètres → Appareils liés → Scanner le QR code
+        </p>
+      </div>
+
+      <div id="pairing-container">
+        <div class="pairing-code-display" id="pairing-code-text">— — — — — — — —</div>
+        <p class="text-muted" style="margin-top: 14px;">
+          Ouvrez WhatsApp → Paramètres → Appareils liés → Relier avec un numéro de téléphone → entrez ce code
         </p>
       </div>
     </div>
@@ -240,7 +367,7 @@
       </div>
 
       <div class="card">
-        <span id="plan-badge" class="plan-badge">⚡ Offre Start</span>
+        <span id="plan-badge" class="plan-badge"></span>
 
         <div class="token-block">
           <div class="token-label">
@@ -269,7 +396,7 @@
 
       <div id="expired-banner" class="card hidden" style="margin-top: 16px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);">
         <p style="color: var(--color-danger); font-weight: 600; margin-bottom: 8px;">
-          ⚠️ Abonnement expiré
+          <span class="icon-warning"></span>Abonnement expiré
         </p>
         <p class="text-muted" style="margin-bottom: 14px;">
           Votre bot est désactivé. Renouvelez votre abonnement pour ne pas perdre votre session WhatsApp.
@@ -294,20 +421,49 @@
 
     let currentUser = null;
     let idToken = null;
+    let connectMode = 'qr';
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = '/index.html';
+        window.location.href = '/login.html';
         return;
       }
       currentUser = user;
       idToken = await user.getIdToken();
+
+      const avatar = document.getElementById('user-avatar');
+      const nameEl = document.getElementById('user-name');
+      const displayName = user.displayName || user.email || 'Utilisateur';
+      nameEl.textContent = displayName.split(' ')[0];
+
+      if (user.photoURL) {
+        avatar.innerHTML = `<img src="${user.photoURL}" alt="${displayName}" />`;
+      } else {
+        avatar.textContent = displayName.charAt(0).toUpperCase();
+      }
+
       loadDashboard();
     });
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await signOut(auth);
-      window.location.href = '/index.html';
+      window.location.href = '/login.html';
+    });
+
+    document.getElementById('tab-qr').addEventListener('click', () => {
+      connectMode = 'qr';
+      document.getElementById('tab-qr').classList.add('active');
+      document.getElementById('tab-pairing').classList.remove('active');
+      document.getElementById('phone-input-wrap').style.display = 'none';
+      document.getElementById('start-connection-btn').textContent = 'Générer le QR code';
+    });
+
+    document.getElementById('tab-pairing').addEventListener('click', () => {
+      connectMode = 'pairing';
+      document.getElementById('tab-pairing').classList.add('active');
+      document.getElementById('tab-qr').classList.remove('active');
+      document.getElementById('phone-input-wrap').style.display = 'block';
+      document.getElementById('start-connection-btn').textContent = 'Obtenir le code';
     });
 
     async function apiCall(endpoint, options = {}) {
@@ -325,7 +481,6 @@
     async function loadDashboard() {
       try {
         const data = await apiCall('/api/user/me');
-
         loadingState.classList.add('hidden');
 
         if (!data.session || !data.session.connected) {
@@ -351,7 +506,7 @@
       const planBadge = document.getElementById('plan-badge');
 
       const planNames = { trial: 'Essai gratuit', start: 'Offre Start', moyen: 'Offre Moyen', premium: 'Offre Premium' };
-      planBadge.textContent = `⚡ ${planNames[data.plan] || data.plan}`;
+      planBadge.innerHTML = `<span class="icon-lightning"></span>${planNames[data.plan] || data.plan}`;
 
       if (data.status === 'expired') {
         expiredBanner.classList.remove('hidden');
@@ -402,6 +557,9 @@
       const promptInput = document.getElementById('business-prompt');
       const qrContainer = document.getElementById('qr-container');
       const qrImage = document.getElementById('qr-image');
+      const pairingContainer = document.getElementById('pairing-container');
+      const pairingCodeText = document.getElementById('pairing-code-text');
+      const phoneInput = document.getElementById('phone-number');
 
       btn.addEventListener('click', async () => {
         const businessPrompt = promptInput.value.trim();
@@ -411,30 +569,49 @@
           return;
         }
 
+        const payload = { businessPrompt };
+
+        if (connectMode === 'pairing') {
+          const phone = phoneInput.value.trim().replace(/\D/g, '');
+          if (phone.length < 9) {
+            alert('Entrez un numéro WhatsApp valide avec indicatif pays.');
+            return;
+          }
+          payload.usePairingCode = true;
+          payload.phoneNumber = phone;
+        }
+
         btn.textContent = 'Génération...';
         btn.disabled = true;
 
         try {
           const data = await apiCall('/api/whatsapp/connect', {
             method: 'POST',
-            body: JSON.stringify({ businessPrompt }),
+            body: JSON.stringify(payload),
           });
 
-          if (data.qrCode) {
+          if (data.pairingCode) {
+            pairingCodeText.textContent = data.pairingCode;
+            pairingContainer.style.display = 'block';
+            qrContainer.style.display = 'none';
+            btn.textContent = 'Nouveau code';
+            btn.disabled = false;
+            pollConnectionStatus();
+          } else if (data.qrCode) {
             qrImage.src = data.qrCode;
             qrContainer.style.display = 'block';
+            pairingContainer.style.display = 'none';
             btn.textContent = 'Nouveau QR code';
             btn.disabled = false;
-
             pollConnectionStatus();
           } else {
-            alert(data.error || 'Erreur lors de la génération du QR code');
-            btn.textContent = 'Générer le QR code';
+            alert(data.error || 'Erreur lors de la génération de la connexion');
+            btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
             btn.disabled = false;
           }
         } catch (error) {
           console.error(error);
-          btn.textContent = 'Générer le QR code';
+          btn.textContent = connectMode === 'pairing' ? 'Obtenir le code' : 'Générer le QR code';
           btn.disabled = false;
         }
       });
