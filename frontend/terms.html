@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Conditions d'utilisation — WhagemIA</title>
+
+  <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico" />
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#25D366" />
+
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    body { background: var(--color-bg); padding-bottom: 60px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+    }
+
+    .topbar img { width: 32px; height: 32px; }
+    .topbar span { font-weight: 700; font-size: 16px; }
+
+    .back-link {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      margin-left: auto;
+    }
+
+    .content {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 6px;
+    }
+
+    .updated {
+      color: var(--color-text-muted);
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section h2 {
+      font-size: 17px;
+      margin-bottom: 10px;
+      color: var(--color-secondary);
+    }
+
+    .section p, .section li {
+      font-size: 14.5px;
+      line-height: 1.65;
+      color: var(--color-text);
+    }
+
+    .section ul {
+      padding-left: 20px;
+      margin-top: 8px;
+    }
+
+    .section li { margin-bottom: 6px; }
+
+    .highlight {
+      background: rgba(37,211,102,0.08);
+      border-left: 3px solid var(--color-primary);
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .warning-box {
+      background: rgba(245,158,11,0.08);
+      border-left: 3px solid var(--color-warning);
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <img src="/assets/logo.png" alt="WhagemIA" />
+    <span>WhagemIA</span>
+    <a href="/index.html" class="back-link">← Retour</a>
+  </div>
+
+  <div class="content">
+    <h1>Conditions d'utilisation</h1>
+    <p class="updated">Dernière mise à jour : 19 août 2026</p>
+
+    <div class="section">
+      <h2>1. Ce qu'est WhagemIA</h2>
+      <p>
+        WhagemIA est un service qui connecte votre compte WhatsApp Business à Gemini,
+        l'intelligence artificielle de Google, afin de répondre automatiquement aux messages
+        de vos clients selon les informations que vous fournissez sur votre entreprise.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>2. Fonctionnement technique et sécurité de votre compte</h2>
+      <p>
+        Notre système est conçu pour se comporter de la manière la plus proche possible
+        d'une utilisation humaine normale de WhatsApp : envoi de messages à un rythme naturel,
+        pas d'envoi massif ni de spam, une seule session active à la fois par numéro connecté.
+      </p>
+      <div class="highlight">
+        Nous mettons en place ces précautions techniques pour réduire au maximum le risque
+        de suspension par WhatsApp. Cependant, WhatsApp appartient à Meta, et WhagemIA n'est
+        ni affilié ni approuvé par Meta ou WhatsApp Inc.
+      </div>
+      <div class="warning-box">
+        ⚠️ Malgré ces précautions, l'utilisation d'un outil d'automatisation reste une utilisation
+        non officielle de WhatsApp. Meta peut, à sa seule discrétion et à tout moment, suspendre
+        ou bannir un compte WhatsApp connecté à un service tiers, indépendamment des mesures de
+        sécurité mises en place. En utilisant WhagemIA, vous reconnaissez et acceptez ce risque.
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3. Essai gratuit</h2>
+      <p>
+        Chaque nouvel utilisateur bénéficie d'un essai gratuit avec un volume limité de tokens
+        (unités de traitement de texte par l'IA). L'essai gratuit est limité à un seul compte
+        par numéro WhatsApp : toute tentative de créer plusieurs comptes avec le même numéro
+        pour renouveler l'essai gratuit entraînera un refus de connexion.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>4. Abonnements et paiement</h2>
+      <ul>
+        <li>Les abonnements sont mensuels et gérés via notre plateforme de paiement partenaire (Chariow).</li>
+        <li>Chaque offre (Start, Moyen, Premium) inclut un volume de tokens en entrée et en sortie, renouvelé chaque mois lors du paiement.</li>
+        <li>En cas d'épuisement de votre quota de tokens avant la fin du mois, le bot est automatiquement désactivé jusqu'à ce que vous renouveliez ou changiez d'offre.</li>
+        <li>En cas de non-renouvellement à l'échéance, votre abonnement passe au statut expiré et le bot cesse de répondre à vos clients.</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>5. Activation et désactivation du bot</h2>
+      <p>
+        Vous pouvez activer ou désactiver votre bot à tout moment depuis votre tableau de bord.
+        Lorsque vous réactivez le bot après une période d'inactivité, seuls les nouveaux messages
+        reçus après la réactivation seront traités — les messages reçus pendant la période
+        d'inactivité ne recevront pas de réponse automatique rétroactive.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>6. Données et confidentialité</h2>
+      <p>
+        Nous stockons les informations nécessaires au fonctionnement du service : votre email,
+        un identifiant chiffré (haché) de votre numéro WhatsApp, la description de votre
+        entreprise que vous fournissez, ainsi que des statistiques d'usage de tokens.
+        Nous ne stockons pas le contenu intégral de vos conversations WhatsApp au-delà de ce
+        qui est nécessaire au traitement immédiat par l'IA.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>7. Limitation de responsabilité</h2>
+      <p>
+        WhagemIA est fourni "tel quel". Nous ne garantissons pas un fonctionnement ininterrompu
+        du service, notamment en cas de panne de nos fournisseurs techniques (hébergement,
+        API Google Gemini, WhatsApp) ou de modification unilatérale des règles d'utilisation
+        de WhatsApp par Meta. Nous ne pourrons être tenus responsables des pertes de messages,
+        de clients, ou de suspension de votre compte WhatsApp résultant de l'utilisation du service.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>8. Contact</h2>
+      <p>
+        Pour toute question concernant ces conditions, contactez-nous via WhatsApp ou email
+        depuis la page d'accueil de WhagemIA.
+      </p>
+    </div>
+
+  </div>
+
+</body>
+</html>
