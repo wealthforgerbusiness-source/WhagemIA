@@ -1,4 +1,4 @@
-const CACHE_NAME = 'whagemia-v1';
+const CACHE_NAME = 'whagemia-v2'; // ⚠️ à incrémenter (v3, v4...) à chaque déploiement important
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -19,9 +19,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       )
     )
   );
@@ -29,13 +27,43 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ne jamais mettre en cache les appels API (données toujours fraîches)
-  if (event.request.url.includes('/api/') || event.request.url.includes('/webhooks/')) {
+  const { request } = event;
+
+  // Ne jamais mettre en cache les appels API / webhooks
+  if (request.url.includes('/api/') || request.url.includes('/webhooks/')) {
     return;
   }
 
+  const isHTML =
+    request.mode === 'navigate' ||
+    (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'));
+
+  if (isHTML) {
+    // Network-first : toujours la version fraîche ; le cache ne sert qu'en secours hors-ligne
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Assets statiques : cache-first, mais on revalide en arrière-plan
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(request).then((cached) => {
+      const fetchPromise = fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
+    })
   );
 });
 
