@@ -4,8 +4,8 @@
   "description": "Automatisez vos réponses WhatsApp avec l'intelligence artificielle",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#0F0F1A",
-  "theme_color": "#25D366",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait-primary",
   "icons": [
     {

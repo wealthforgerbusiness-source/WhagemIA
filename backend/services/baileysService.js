@@ -16,6 +16,9 @@ const geminiService = require('./geminiService');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 
+// Notifier pour SSE
+const notifier = require('./notificationService');
+
 const activeSockets = new Map();
 const qrCallbacks = new Map();
 const businessPrompts = new Map();
@@ -72,11 +75,6 @@ async function startWhatsappSession(
       businessPrompt || ''
     );
 
-    /*
-     * IMPORTANT :
-     * On considère la session comme NON CONNECTÉE
-     * tant que connection !== 'open'.
-     */
     connectedSockets.delete(firebaseUid);
 
     await sessionModel.saveSessionStatus(
@@ -112,9 +110,6 @@ async function startWhatsappSession(
       );
     }
 
-    /*
-     * Sauvegarde des credentials.
-     */
     sock.ev.on(
       'creds.update',
       async () => {
@@ -144,17 +139,7 @@ async function startWhatsappSession(
           qr,
         } = update;
 
-        /*
-         * =====================================================
-         * QR CODE
-         * =====================================================
-         *
-         * IMPORTANT :
-         * On transmet le QR BRUT.
-         *
-         * La route API ne doit PAS refaire QRCode.toDataURL()
-         * dessus.
-         */
+        // QR CODE
         if (
           qr &&
           connectionMethod === 'qr'
@@ -174,6 +159,13 @@ async function startWhatsappSession(
                 null
               );
 
+              // Notifier les clients SSE qu'un QR est prêt (on envoie le QR brut; la route le convertira en dataURL si besoin)
+              notifier.emit(firebaseUid, {
+                status: 'qr_ready',
+                qrCode: qr,
+                updatedAt: new Date().toISOString(),
+              });
+
               console.log(
                 `✅ QR transmis au dashboard: ${firebaseUid}`
               );
@@ -186,11 +178,7 @@ async function startWhatsappSession(
           }
         }
 
-        /*
-         * =====================================================
-         * CODE DE PAIRAGE
-         * =====================================================
-         */
+        // PAIRING CODE
         if (
           connectionMethod === 'pairing' &&
           phoneNumber &&
@@ -240,6 +228,12 @@ async function startWhatsappSession(
                 null
               );
             }
+
+            notifier.emit(firebaseUid, {
+              status: 'pairing_ready',
+              pairingCode: code,
+              updatedAt: new Date().toISOString(),
+            });
           } catch (error) {
             console.error(
               `❌ Erreur code pairage ${firebaseUid}:`,
@@ -257,15 +251,17 @@ async function startWhatsappSession(
               );
             }
 
+            notifier.emit(firebaseUid, {
+              status: 'error',
+              error: 'PAIRING_CODE_ERROR',
+              updatedAt: new Date().toISOString(),
+            });
+
             pairingRequested = false;
           }
         }
 
-        /*
-         * =====================================================
-         * CONNEXION OUVERTE
-         * =====================================================
-         */
+        // CONNEXION OUVERTE
         if (
           connection === 'open'
         ) {
@@ -361,6 +357,12 @@ async function startWhatsappSession(
                 );
               }
 
+              notifier.emit(firebaseUid, {
+                status: 'error',
+                error: 'NUMBER_ALREADY_USED',
+                updatedAt: new Date().toISOString(),
+              });
+
               return;
             }
 
@@ -386,10 +388,6 @@ async function startWhatsappSession(
               );
             }
 
-            /*
-             * C'EST ICI SEULEMENT qu'on passe
-             * connected à true.
-             */
             connectedSockets.add(
               firebaseUid
             );
@@ -411,6 +409,13 @@ async function startWhatsappSession(
             qrCallbacks.delete(
               firebaseUid
             );
+
+            // Notifier la connexion
+            notifier.emit(firebaseUid, {
+              status: 'connected',
+              connected: true,
+              updatedAt: new Date().toISOString(),
+            });
 
             console.log(
               `✅ Session WhatsApp prête: ${firebaseUid}`
@@ -444,14 +449,16 @@ async function startWhatsappSession(
                 'CONNECTION_ERROR'
               );
             }
+
+            notifier.emit(firebaseUid, {
+              status: 'error',
+              error: 'CONNECTION_ERROR',
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
 
-        /*
-         * =====================================================
-         * CONNEXION FERMÉE
-         * =====================================================
-         */
+        // CONNEXION FERMÉE
         if (
           connection === 'close'
         ) {
@@ -485,9 +492,7 @@ async function startWhatsappSession(
             }
           );
 
-          /*
-           * ARRÊT MANUEL
-           */
+          // Arrêt manuel
           if (
             manuallyStopped.has(
               firebaseUid
@@ -501,12 +506,16 @@ async function startWhatsappSession(
               firebaseUid
             );
 
+            notifier.emit(firebaseUid, {
+              status: 'disconnected',
+              connected: false,
+              updatedAt: new Date().toISOString(),
+            });
+
             return;
           }
 
-          /*
-           * SESSION LOGGED OUT
-           */
+          // Session logged out
           if (
             statusCode ===
             DisconnectReason.loggedOut
@@ -536,12 +545,16 @@ async function startWhatsappSession(
               firebaseUid
             );
 
+            notifier.emit(firebaseUid, {
+              status: 'disconnected',
+              connected: false,
+              updatedAt: new Date().toISOString(),
+            });
+
             return;
           }
 
-          /*
-           * RECONNEXION AUTOMATIQUE
-           */
+          // Reconnexion automatique
           try {
             const user =
               await userModel.getUserById(
@@ -617,11 +630,7 @@ async function startWhatsappSession(
       }
     );
 
-    /*
-     * =====================================================
-     * MESSAGES
-     * =====================================================
-     */
+    // MESSAGES
     sock.ev.on(
       'messages.upsert',
       async ({
@@ -923,6 +932,12 @@ async function stopWhatsappSession(
       connected: false,
     }
   );
+
+  notifier.emit(firebaseUid, {
+    status: 'disconnected',
+    connected: false,
+    updatedAt: new Date().toISOString(),
+  });
 
   console.log(
     `✅ Session WhatsApp arrêtée: ${firebaseUid}`
