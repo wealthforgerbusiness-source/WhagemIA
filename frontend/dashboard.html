@@ -152,9 +152,9 @@
 
     #phone-number:focus { outline: none; border-color: var(--color-secondary); }
 
-    #qr-container, #pairing-container { display: none; margin-top: 20px; }
+    #qr-container, #pairing-container, #reconnect-qr-container { display: none; margin-top: 20px; text-align: center; }
 
-    #qr-container img {
+    #qr-container img, #reconnect-qr-container img {
       width: 220px;
       height: 220px;
       border-radius: var(--radius-md);
@@ -425,6 +425,14 @@
           Déconnecter / Reconnecter WhatsApp
         </button>
         <div id="reconnect-status" class="text-muted" style="font-size: 12px; margin-top: 6px;"></div>
+
+        <div id="reconnect-qr-container">
+          <img id="reconnect-qr-image" src="" alt="QR Code WhatsApp" />
+          <p class="text-muted" style="margin-top: 14px;">
+            Ouvrez WhatsApp → Paramètres → Appareils liés → Scanner le QR code
+          </p>
+          <button id="reconnect-cancel-btn" class="btn" style="width: 100%; margin-top: 12px;">Annuler</button>
+        </div>
       </div>
 
       <div class="card">
@@ -451,7 +459,7 @@
         </div>
 
         <p id="payment-email-warning" style="color: var(--color-danger); font-size: 12.5px; font-weight: 600; margin: 4px 0 12px; line-height: 1.5;">
-          ⚠️ Important : au paiement, utilise exactement l'email <span id="payment-email-value">de ton compte</span> — c'est ce qui permet de retrouver et réactiver automatiquement ton abonnement.
+          ⚠️ Important : utilisez toujours votre email de compte utilisateur WhagemIA (<span id="payment-email-value">votre email</span>) quand vous payez, sinon aucun réabonnement ne sera effectué.
         </p>
 
         <div id="upgrade-links" style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
@@ -475,7 +483,7 @@
           Votre bot est désactivé. Renouvelez votre abonnement pour ne pas perdre votre session WhatsApp.
         </p>
         <p style="color: var(--color-danger); font-size: 13px; font-weight: 600; margin-bottom: 0;">
-          ⚠️ Important : lors du paiement, utilisez impérativement l'adresse email <span id="expired-user-email" style="text-decoration: underline;"></span> (celle de votre compte). Un autre email ne réactivera pas votre abonnement automatiquement.
+          ⚠️ Important : utilisez toujours votre email de compte utilisateur WhagemIA (<span id="expired-user-email" style="text-decoration: underline;"></span>) quand vous payez, sinon aucun réabonnement ne sera effectué.
         </p>
       </div>
 
@@ -625,16 +633,86 @@
 
       const reconnectBtn = document.getElementById('reconnect-whatsapp-btn');
       const reconnectStatus = document.getElementById('reconnect-status');
+      const reconnectQrContainer = document.getElementById('reconnect-qr-container');
+      const reconnectQrImage = document.getElementById('reconnect-qr-image');
+      const reconnectCancelBtn = document.getElementById('reconnect-cancel-btn');
+
+      let reconnectPollInterval = null;
+
+      function stopReconnectPolling() {
+        if (reconnectPollInterval) {
+          clearInterval(reconnectPollInterval);
+          reconnectPollInterval = null;
+        }
+      }
+
+      function resetReconnectUi() {
+        stopReconnectPolling();
+        reconnectQrContainer.style.display = 'none';
+        reconnectBtn.style.display = 'block';
+        reconnectBtn.disabled = false;
+        reconnectBtn.textContent = 'Déconnecter / Reconnecter WhatsApp';
+        reconnectStatus.textContent = '';
+      }
+
+      reconnectCancelBtn.onclick = () => {
+        resetReconnectUi();
+      };
 
       reconnectBtn.onclick = async () => {
-        if (!confirm("Déconnecter WhatsApp ? Tu devras rescanner un nouveau QR code.")) {
+        if (!confirm("Déconnecter WhatsApp ? Un nouveau QR code va être généré, tu devras le rescanner.")) {
           return;
         }
         reconnectBtn.disabled = true;
         reconnectBtn.textContent = 'Déconnexion...';
+        reconnectStatus.textContent = '';
+
         try {
+          // 1. On coupe la session actuelle
           await apiCall('/api/whatsapp/disconnect', { method: 'POST' });
-          window.location.reload();
+
+          // 2. On relance immédiatement une nouvelle connexion, avec le prompt déjà existant,
+          //    pour forcer le backend à générer un VRAI nouveau QR code (au lieu de recharger
+          //    la session déjà connue et ne rien afficher)
+          reconnectBtn.textContent = 'Génération du QR...';
+          const connectData = await apiCall('/api/whatsapp/connect', {
+            method: 'POST',
+            body: JSON.stringify({ businessPrompt: data.businessPrompt || '' }),
+          });
+
+          if (!(connectData.success || connectData.status === 'connecting')) {
+            reconnectStatus.textContent = connectData.error || 'Erreur lors de la génération du QR.';
+            reconnectBtn.disabled = false;
+            reconnectBtn.textContent = 'Déconnecter / Reconnecter WhatsApp';
+            return;
+          }
+
+          // 3. On affiche la zone QR et on interroge le backend jusqu'à obtenir le QR
+          reconnectBtn.style.display = 'none';
+          reconnectQrContainer.style.display = 'block';
+          reconnectStatus.textContent = 'Génération du QR code en cours...';
+
+          reconnectPollInterval = setInterval(async () => {
+            try {
+              const statusData = await apiCall('/api/whatsapp/connect-status');
+
+              if (statusData.status === 'qr_ready' && statusData.qrCode) {
+                reconnectQrImage.src = statusData.qrCode;
+                reconnectStatus.textContent = 'Scanne ce QR code avec WhatsApp.';
+              } else if (statusData.status === 'connected') {
+                stopReconnectPolling();
+                window.location.reload();
+              } else if (statusData.status === 'error') {
+                stopReconnectPolling();
+                reconnectStatus.textContent = statusData.error || 'Erreur pendant la connexion.';
+                resetReconnectUi();
+              }
+              // sinon status === 'connecting' -> on continue de patienter
+            } catch (pollError) {
+              console.error('Erreur polling reconnect-status:', pollError);
+            }
+          }, 1500);
+
         } catch (error) {
           reconnectStatus.textContent = 'Erreur, réessaie.';
           reconnectBtn.disabled = false;
