@@ -333,40 +333,39 @@
       40% { opacity: 1; transform: translateY(-4px); }
     }
 
-    /* Section "Comment installer" — galerie d'étapes qui défile horizontalement */
+    /* Section "Comment installer" — carrousel forcé, une étape à la fois */
     .install-scroller {
       display: flex;
-      gap: 18px;
+      gap: 0;
       overflow-x: auto;
       scroll-snap-type: x mandatory;
-      padding: 8px 24px 20px;
-      margin: 0 -24px;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
     }
     .install-scroller::-webkit-scrollbar { display: none; }
 
     .install-step {
-      flex: 0 0 auto;
-      width: 220px;
-      scroll-snap-align: start;
-      background: var(--color-surface);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 0 24px;
     }
-    .install-step:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
 
     .install-step img {
       width: 100%;
+      max-width: 260px;
       aspect-ratio: 9 / 19.5;
       object-fit: cover;
       display: block;
       background: var(--color-bg-dark);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 16px;
     }
-
-    .install-step-body { padding: 14px 16px 18px; }
 
     .install-step-num {
       display: inline-flex;
@@ -382,18 +381,28 @@
       margin-bottom: 10px;
     }
 
-    .install-step h4 { font-size: 14.5px; font-weight: 700; margin-bottom: 6px; }
-    .install-step p { font-size: 12.5px; color: var(--color-text-muted); line-height: 1.5; }
+    .install-step h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .install-step p { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; max-width: 300px; }
 
-    .install-scroller-hint {
-      text-align: center;
-      font-size: 12.5px;
-      color: var(--color-text-muted);
-      margin-top: 4px;
+    .install-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 18px;
     }
-
-    @media (min-width: 760px) {
-      .install-scroller { justify-content: center; flex-wrap: nowrap; }
+    .install-dots button {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: none;
+      padding: 0;
+      background: var(--color-border);
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .install-dots button.active {
+      background: var(--color-primary);
+      transform: scale(1.3);
     }
   </style>
 </head>
@@ -481,56 +490,61 @@
   <section class="section" id="installer" style="padding-top: 0;">
     <div class="section-header reveal">
       <h2>Comment installer WhagemIA sur ton téléphone</h2>
-      <p>Fais glisser vers la gauche pour voir toutes les étapes, du menu du navigateur jusqu'à l'icône sur ton écran d'accueil.</p>
+      <p>Fais glisser vers la gauche pour avancer, étape par étape.</p>
     </div>
 
-    <div class="install-scroller reveal">
+    <div class="install-scroller reveal" id="install-scroller">
       <div class="install-step">
         <img src="/assets/install-steps/01-ouvrir-menu.png" alt="Ouvrir le menu du navigateur" loading="lazy" />
-        <div class="install-step-body">
-          <span class="install-step-num">1</span>
-          <h4>Ouvre le menu</h4>
-          <p>Sur la page WhagemIA, appuie sur les trois points (⋮) en haut à droite de ton navigateur.</p>
-        </div>
+        <span class="install-step-num">1</span>
+        <h4>Ouvre le menu</h4>
+        <p>Sur la page WhagemIA, appuie sur les trois points (⋮) en bas ou en haut de ton navigateur.</p>
       </div>
 
       <div class="install-step">
         <img src="/assets/install-steps/02-ajouter-la-page.png" alt="Appuyer sur Ajouter la page à" loading="lazy" />
-        <div class="install-step-body">
-          <span class="install-step-num">2</span>
-          <h4>Ajoute la page</h4>
-          <p>Dans le menu qui s'ouvre, appuie sur « Ajouter la page à ».</p>
-        </div>
+        <span class="install-step-num">2</span>
+        <h4>Ajoute la page</h4>
+        <p>Dans le menu qui s'ouvre, appuie sur « Ajouter la page à ».</p>
       </div>
 
       <div class="install-step">
         <img src="/assets/install-steps/03-installer-application-web.png" alt="Installer en tant qu'application Web" loading="lazy" />
-        <div class="install-step-body">
-          <span class="install-step-num">3</span>
-          <h4>Installe l'application</h4>
-          <p>Choisis « Installer en tant qu'application Web » dans la liste proposée.</p>
-        </div>
+        <span class="install-step-num">3</span>
+        <h4>Installe l'application</h4>
+        <p>Choisis « Installer en tant qu'application Web » dans la liste proposée.</p>
       </div>
 
       <div class="install-step">
-        <img src="/assets/install-steps/04-autoriser-installation.png" alt="Autoriser l'installation malgré l'avertissement Play Protect" loading="lazy" />
-        <div class="install-step-body">
-          <span class="install-step-num">4</span>
-          <h4>Confirme l'installation</h4>
-          <p>Android peut afficher un avertissement de vérification : c'est normal, appuie simplement sur « OK » ou « Installer quand même ».</p>
-        </div>
+        <img src="/assets/install-steps/04-avertissement-securite.png" alt="Avertissement de sécurité Android" loading="lazy" />
+        <span class="install-step-num">4</span>
+        <h4>Un avertissement peut apparaître</h4>
+        <p>Android affiche parfois « Appli non sécurisée bloquée ». C'est normal, l'app est encore en cours de vérification.</p>
       </div>
 
       <div class="install-step">
-        <img src="/assets/install-steps/05-app-installee.png" alt="Icône WhagemIA installée sur l'écran d'accueil" loading="lazy" />
-        <div class="install-step-body">
-          <span class="install-step-num">5</span>
-          <h4>C'est prêt</h4>
-          <p>L'icône WhagemIA apparaît sur ton écran d'accueil, prête à ouvrir comme une vraie application.</p>
-        </div>
+        <img src="/assets/install-steps/05-confirmer-ok.png" alt="Confirmer avec OK" loading="lazy" />
+        <span class="install-step-num">5</span>
+        <h4>Confirme l'installation</h4>
+        <p>Appuie sur « OK » pour continuer l'installation en toute sécurité.</p>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/06-icone-ecran-accueil.png" alt="Icône WhagemIA sur l'écran d'accueil" loading="lazy" />
+        <span class="install-step-num">6</span>
+        <h4>Trouve l'icône</h4>
+        <p>L'icône WhagemIA apparaît sur ton écran d'accueil, comme une vraie application.</p>
+      </div>
+
+      <div class="install-step">
+        <img src="/assets/install-steps/07-ouvrir-app.png" alt="Ouvrir l'application WhagemIA" loading="lazy" />
+        <span class="install-step-num">7</span>
+        <h4>C'est prêt</h4>
+        <p>Appuie sur l'icône pour ouvrir WhagemIA et connecter ton WhatsApp.</p>
       </div>
     </div>
-    <p class="install-scroller-hint reveal">👉 Fais glisser pour voir les 5 étapes</p>
+
+    <div class="install-dots" id="install-dots"></div>
   </section>
 
   <section class="section" id="pricing">
@@ -651,6 +665,26 @@
       });
     }, { threshold: 0.15 });
     revealEls.forEach((el) => observer.observe(el));
+
+    // Points de pagination du carrousel "Comment installer"
+    const scroller = document.getElementById('install-scroller');
+    const dotsWrap = document.getElementById('install-dots');
+    if (scroller && dotsWrap) {
+      const slides = scroller.querySelectorAll('.install-step');
+      slides.forEach((_, i) => {
+        const dot = document.createElement('button');
+        if (i === 0) dot.classList.add('active');
+        dot.addEventListener('click', () => {
+          slides[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        });
+        dotsWrap.appendChild(dot);
+      });
+      const dots = dotsWrap.querySelectorAll('button');
+      scroller.addEventListener('scroll', () => {
+        const index = Math.round(scroller.scrollLeft / scroller.clientWidth);
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
+      }, { passive: true });
+    }
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
