@@ -450,6 +450,10 @@
           </div>
         </div>
 
+        <p id="payment-email-warning" style="color: var(--color-danger); font-size: 12.5px; font-weight: 600; margin: 4px 0 12px; line-height: 1.5;">
+          ⚠️ Important : au paiement, utilise exactement l'email <span id="payment-email-value">de ton compte</span> — c'est ce qui permet de retrouver et réactiver automatiquement ton abonnement.
+        </p>
+
         <div id="upgrade-links" style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
           <a href="https://gzbzlzip.mychariow.store/prd_fymelhio" target="_blank" rel="noopener" class="btn upgrade-btn" style="width: 100%;">
             Offre Start — $5/mois
@@ -467,8 +471,11 @@
         <p style="color: var(--color-danger); font-weight: 600; margin-bottom: 8px;">
           <span class="icon-warning"></span>Abonnement expiré
         </p>
-        <p class="text-muted" style="margin-bottom: 14px;">
+        <p class="text-muted" style="margin-bottom: 10px;">
           Votre bot est désactivé. Renouvelez votre abonnement pour ne pas perdre votre session WhatsApp.
+        </p>
+        <p style="color: var(--color-danger); font-size: 13px; font-weight: 600; margin-bottom: 0;">
+          ⚠️ Important : lors du paiement, utilisez impérativement l'adresse email <span id="expired-user-email" style="text-decoration: underline;"></span> (celle de votre compte). Un autre email ne réactivera pas votre abonnement automatiquement.
         </p>
       </div>
 
@@ -576,6 +583,11 @@
     }
 
     function renderDashboard(data) {
+      const paymentEmailValue = document.getElementById('payment-email-value');
+      if (paymentEmailValue && currentUser?.email) {
+        paymentEmailValue.textContent = currentUser.email;
+      }
+
       const statusDot = document.getElementById('status-dot');
       const statusText = document.getElementById('status-text');
       const botToggle = document.getElementById('bot-toggle');
@@ -587,6 +599,8 @@
 
       if (data.status === 'expired') {
         expiredBanner.classList.remove('hidden');
+        const emailSpan = document.getElementById('expired-user-email');
+        if (emailSpan) emailSpan.textContent = data.email || (currentUser && currentUser.email) || '';
         statusDot.classList.add('off');
         statusText.textContent = 'Bot désactivé';
         botToggle.classList.remove('active');
