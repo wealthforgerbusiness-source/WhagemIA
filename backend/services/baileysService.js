@@ -947,6 +947,16 @@ function isWhatsappConnected(
   );
 }
 
+function updateBusinessPrompt(
+  firebaseUid,
+  businessPrompt
+) {
+  businessPrompts.set(
+    firebaseUid,
+    businessPrompt || ''
+  );
+}
+
 async function reconnectAllActiveSessions() {
   console.log(
     '🔄 Recherche des sessions WhatsApp à reconnecter...'
@@ -1027,5 +1037,6 @@ module.exports = {
   stopWhatsappSession,
   getActiveSocket,
   isWhatsappConnected,
+  updateBusinessPrompt,
   reconnectAllActiveSessions,
 };
