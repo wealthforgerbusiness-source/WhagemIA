@@ -421,6 +421,13 @@
       </div>
 
       <div class="card">
+        <button id="reconnect-whatsapp-btn" class="btn" style="width: 100%; color: var(--color-danger, #ef4444); border: 1px solid var(--color-danger, #ef4444); background: transparent;">
+          Déconnecter / Reconnecter WhatsApp
+        </button>
+        <div id="reconnect-status" class="text-muted" style="font-size: 12px; margin-top: 6px;"></div>
+      </div>
+
+      <div class="card">
         <span id="plan-badge" class="plan-badge"></span>
 
         <div class="token-block">
@@ -592,6 +599,25 @@
         if (data.status === 'expired') return;
         await apiCall('/api/user/toggle-bot', { method: 'POST' });
         loadDashboard();
+      };
+
+      const reconnectBtn = document.getElementById('reconnect-whatsapp-btn');
+      const reconnectStatus = document.getElementById('reconnect-status');
+
+      reconnectBtn.onclick = async () => {
+        if (!confirm("Déconnecter WhatsApp ? Tu devras rescanner un nouveau QR code.")) {
+          return;
+        }
+        reconnectBtn.disabled = true;
+        reconnectBtn.textContent = 'Déconnexion...';
+        try {
+          await apiCall('/api/whatsapp/disconnect', { method: 'POST' });
+          window.location.reload();
+        } catch (error) {
+          reconnectStatus.textContent = 'Erreur, réessaie.';
+          reconnectBtn.disabled = false;
+          reconnectBtn.textContent = 'Déconnecter / Reconnecter WhatsApp';
+        }
       };
 
       const promptEdit = document.getElementById('business-prompt-edit');
