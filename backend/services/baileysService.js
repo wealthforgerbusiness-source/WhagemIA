@@ -7,23 +7,26 @@ const {
 const { Boom } = require('@hapi/boom');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const pino = require('pino');
 
 const geminiService = require('./geminiService');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 
-// Stocke les connexions actives en mémoire (une par utilisateur)
 const activeSockets = new Map();
 const qrCallbacks = new Map();
+const businessPrompts = new Map(); // stocke le prompt métier par utilisateur en mémoire
 
 const SESSIONS_DIR = path.join(__dirname, '..', 'baileys_sessions');
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-async function startWhatsappSession(firebaseUid, businessPrompt, onQrCode) {
+async function startWhatsappSession(firebaseUid, userEmail, businessPrompt, onQrCode, usePairingCode, phoneNumber) {
   const sessionPath = path.join(SESSIONS_DIR, firebaseUid);
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
   const { version } = await fetchLatestBaileysVersion();
+
+  businessPrompts.set(firebaseUid, businessPrompt);
 
   const sock = makeWASocket({
     version,
@@ -35,22 +38,70 @@ async function startWhatsappSession(firebaseUid, businessPrompt, onQrCode) {
   activeSockets.set(firebaseUid, sock);
   if (onQrCode) qrCallbacks.set(firebaseUid, onQrCode);
 
+  // Si l'utilisateur n'a qu'un téléphone : demander un code de pairage au lieu du QR
+  if (usePairingCode && phoneNumber && !sock.authState.creds.registered) {
+    try {
+      const code = await sock.requestPairingCode(phoneNumber);
+      const callback = qrCallbacks.get(firebaseUid);
+      if (callback) callback(null, code); // null pour le QR, code pour le pairing
+    } catch (err) {
+      console.error('Erreur génération pairing code:', err.message);
+    }
+  }
+
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    if (qr && !usePairingCode) {
       const callback = qrCallbacks.get(firebaseUid);
-      if (callback) callback(qr);
+      if (callback) callback(qr, null);
     }
 
     if (connection === 'open') {
       console.log(`WhatsApp connecté pour ${firebaseUid}`);
+
+      // Récupère le numéro WhatsApp réellement connecté
+      const connectedNumber = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0];
+
+      if (connectedNumber) {
+        const whatsappNumberHash = crypto
+          .createHash('sha256')
+          .update(connectedNumber)
+          .digest('hex');
+
+        // Anti-abus : vérifier si ce numéro a déjà utilisé l'essai sur un autre compte
+        const existingByNumber = await userModel.findUserByWhatsappHash(whatsappNumberHash);
+
+        if (existingByNumber && existingByNumber.id !== firebaseUid) {
+          console.warn(`Numéro déjà utilisé par un autre compte: ${firebaseUid}`);
+          await sock.end();
+          activeSockets.delete(firebaseUid);
+          const callback = qrCallbacks.get(firebaseUid);
+          if (callback) callback(null, null, 'NUMBER_ALREADY_USED');
+          return;
+        }
+
+        // Créer ou récupérer l'utilisateur en base
+        let user = await userModel.getUserById(firebaseUid);
+        if (!user) {
+          user = await userModel.createUser({
+            firebaseUid,
+            email: userEmail,
+            whatsappNumberHash,
+          });
+        }
+
+        await userModel.updateUser(firebaseUid, { businessPrompt });
+      }
+
       await sessionModel.saveSessionStatus(firebaseUid, {
         connected: true,
         lastActiveAt: new Date().toISOString(),
       });
+      await sessionModel.setLastProcessedTimestamp(firebaseUid, new Date().toISOString());
+
       qrCallbacks.delete(firebaseUid);
     }
 
@@ -64,9 +115,11 @@ async function startWhatsappSession(firebaseUid, businessPrompt, onQrCode) {
 
       if (shouldReconnect) {
         console.log(`Reconnexion WhatsApp pour ${firebaseUid}...`);
-        startWhatsappSession(firebaseUid, businessPrompt, onQrCode);
+        const savedPrompt = businessPrompts.get(firebaseUid) || businessPrompt;
+        startWhatsappSession(firebaseUid, userEmail, savedPrompt, null, false, null);
       } else {
         console.log(`Déconnexion définitive pour ${firebaseUid} (logout)`);
+        businessPrompts.delete(firebaseUid);
       }
     }
   });
@@ -77,7 +130,8 @@ async function startWhatsappSession(firebaseUid, businessPrompt, onQrCode) {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
 
-    await handleIncomingMessage(firebaseUid, sock, msg, businessPrompt);
+    const prompt = businessPrompts.get(firebaseUid) || businessPrompt;
+    await handleIncomingMessage(firebaseUid, sock, msg, prompt);
   });
 
   return sock;
@@ -88,10 +142,8 @@ async function handleIncomingMessage(firebaseUid, sock, msg, businessPrompt) {
     const user = await userModel.getUserById(firebaseUid);
     if (!user) return;
 
-    // Bot désactivé manuellement ou abonnement expiré
     if (!user.botEnabled || user.status === 'expired') return;
 
-    // Ignorer les messages antérieurs à la dernière réactivation
     const lastProcessed = await sessionModel.getLastProcessedTimestamp(firebaseUid);
     const msgTimestamp = (msg.messageTimestamp || 0) * 1000;
     if (lastProcessed && msgTimestamp < new Date(lastProcessed).getTime()) {
