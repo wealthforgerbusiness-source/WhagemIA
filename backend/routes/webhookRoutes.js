@@ -5,13 +5,11 @@ const userModel = require('../models/userModel');
 
 // Mapping des IDs produits Chariow vers les plans WhagemIA
 const PRODUCT_PLAN_MAP = {
-  'prd_86iizrc9': { plan: 'start', tokensInLimit: 1000000, tokensOutLimit: 1000000 },
-  'prd_y8bcttrq': { plan: 'moyen', tokensInLimit: 2500000, tokensOutLimit: 2500000 },
-  'prd_sale09vy': { plan: 'premium', tokensInLimit: 6000000, tokensOutLimit: 6000000 },
+  'prd_fymelhio': { plan: 'start', tokensInLimit: 1000000, tokensOutLimit: 1000000 },
+  'prd_7mimbvzb': { plan: 'moyen', tokensInLimit: 2500000, tokensOutLimit: 2500000 },
+  'prd_xv5afl3a': { plan: 'premium', tokensInLimit: 6000000, tokensOutLimit: 6000000 },
 };
 
-// IMPORTANT : ce webhook doit recevoir le BODY BRUT (raw), pas du JSON déjà parsé,
-// sinon la vérification de signature échouera systématiquement.
 router.post(
   '/chariow',
   express.raw({ type: 'application/json' }),
@@ -22,7 +20,7 @@ router.post(
         'sha256=' +
         crypto
           .createHmac('sha256', process.env.CHARIOW_WEBHOOK_SECRET)
-          .update(req.body) // buffer brut, jamais re-sérialisé
+          .update(req.body)
           .digest('hex');
 
       const a = Buffer.from(receivedSignature);
@@ -33,13 +31,12 @@ router.post(
         return res.status(401).send('Invalid signature');
       }
 
-      // Réponse immédiate à Chariow (obligatoire, avant tout traitement long)
       res.status(200).send('OK');
 
       const payload = JSON.parse(req.body.toString('utf8'));
 
       if (payload.event !== 'successful.sale') {
-        return; // on ignore les autres événements pour l'instant
+        return;
       }
 
       const productId = payload.product?.id;
@@ -60,12 +57,9 @@ router.post(
 
       if (!user) {
         console.warn(`Aucun utilisateur trouvé pour l'email: ${customerEmail}`);
-        // Optionnel : stocker le paiement en attente pour le lier
-        // quand l'utilisateur se connectera avec Google avec ce même email.
         return;
       }
 
-      // Réactivation / mise à niveau de l'abonnement
       await userModel.updateUser(user.id, {
         plan: planInfo.plan,
         status: 'active',
