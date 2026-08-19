@@ -544,25 +544,46 @@
       return res.json();
     }
 
-    async function loadDashboard() {
-      try {
-        const data = await apiCall('/api/user/me');
-        hideSplash();
+   async function loadDashboard() {
+  try {
+    const data = await apiCall('/api/user/me');
 
-        if (!data.session || !data.session.connected) {
-          setupState.classList.remove('hidden');
-          setupQrFlow();
-        } else {
-          dashboardState.classList.remove('hidden');
-          renderDashboard(data);
-        }
-      } catch (error) {
-        console.error('Erreur chargement dashboard:', error);
-        hideSplash();
-        setupState.classList.remove('hidden');
-        setupQrFlow();
-      }
+    hideSplash();
+
+    // IMPORTANT :
+    // toujours masquer les deux interfaces avant
+    // de décider laquelle afficher.
+    setupState.classList.add('hidden');
+    dashboardState.classList.add('hidden');
+
+    if (
+      !data.session ||
+      !data.session.connected
+    ) {
+      setupState.classList.remove('hidden');
+
+      setupQrFlow();
+    } else {
+      dashboardState.classList.remove('hidden');
+
+      renderDashboard(data);
     }
+  } catch (error) {
+    console.error(
+      'Erreur chargement dashboard:',
+      error
+    );
+
+    hideSplash();
+
+    setupState.classList.add('hidden');
+    dashboardState.classList.add('hidden');
+
+    setupState.classList.remove('hidden');
+
+    setupQrFlow();
+  }
+}
 
     function renderDashboard(data) {
       const statusDot = document.getElementById('status-dot');
