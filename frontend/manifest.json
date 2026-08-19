@@ -2,9 +2,9 @@
   "name": "WhagemIA - Agent IA WhatsApp",
   "short_name": "WhagemIA",
   "description": "Automatisez vos réponses WhatsApp avec l'intelligence artificielle",
-  "start_url": "/dashboard.html",
+  "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#F7F8FA",
+  "background_color": "#0F0F1A",
   "theme_color": "#25D366",
   "orientation": "portrait-primary",
   "icons": [
