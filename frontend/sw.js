@@ -1,8 +1,5 @@
-const CACHE_NAME = 'whagemia-v2'; // ⚠️ à incrémenter (v3, v4...) à chaque déploiement important
+const CACHE_NAME = 'whagemia-v2'; // ⚠️ change ce numéro à CHAQUE déploiement pour forcer la mise à jour
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/dashboard.html',
   '/css/variables.css',
   '/css/style.css',
   '/assets/logo.png',
@@ -19,7 +16,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       )
     )
   );
@@ -27,47 +26,27 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-
-  // Ne jamais mettre en cache les appels API / webhooks
-  if (request.url.includes('/api/') || request.url.includes('/webhooks/')) {
+  if (event.request.url.includes('/api/') || event.request.url.includes('/webhooks/')) {
     return;
   }
 
-  const isHTML =
-    request.mode === 'navigate' ||
-    (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'));
-
-  if (isHTML) {
-    // Network-first : toujours la version fraîche ; le cache ne sert qu'en secours hors-ligne
+  // Pages HTML (navigation) : toujours aller chercher la dernière version sur le
+  // réseau en premier. Le cache ne sert que si le téléphone est hors-ligne.
+  // C'est ça qui manquait : avant, une page HTML mise en cache une fois restait
+  // affichée indéfiniment, même après un nouveau déploiement.
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match(request))
+      fetch(event.request).catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // Assets statiques : cache-first, mais on revalide en arrière-plan
+  // Fichiers statiques (CSS, images) : cache d'abord, réseau en secours.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });
 
-// Notifications push
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'WhagemIA';
