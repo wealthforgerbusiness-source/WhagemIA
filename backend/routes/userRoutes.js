@@ -70,6 +70,101 @@ router.get(
   }
 );
 
+/*
+ * =====================================================
+ * MISE À JOUR DU PROMPT MÉTIER
+ * =====================================================
+ *
+ * Cette route manquait dans le backend : le frontend
+ * l'appelait mais recevait un 404, d'où "Erreur, réessaie."
+ */
+router.patch(
+  '/prompt',
+  verifyFirebaseToken,
+  async (req, res) => {
+    const firebaseUid =
+      req.firebaseUid;
+
+    try {
+      const {
+        businessPrompt,
+      } = req.body || {};
+
+      if (
+        !businessPrompt ||
+        typeof businessPrompt !== 'string' ||
+        businessPrompt.trim().length < 10
+      ) {
+        return res.status(400).json({
+          error:
+            "Description de l'entreprise requise (au moins 10 caractères)",
+        });
+      }
+
+      const trimmedPrompt =
+        businessPrompt.trim();
+
+      const user =
+        await userModel.getUserById(
+          firebaseUid
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          error:
+            'Utilisateur non trouvé',
+        });
+      }
+
+      await userModel.updateUser(
+        firebaseUid,
+        {
+          businessPrompt:
+            trimmedPrompt,
+        }
+      );
+
+      /*
+       * Si le bot tourne déjà en mémoire (socket actif),
+       * on met aussi à jour le prompt utilisé en direct
+       * par baileysService pour que le changement soit
+       * pris en compte sans reconnexion WhatsApp.
+       */
+      try {
+        baileysService.updateBusinessPrompt(
+          firebaseUid,
+          trimmedPrompt
+        );
+      } catch (error) {
+        console.error(
+          `⚠️ Impossible de mettre à jour le prompt en mémoire ${firebaseUid}:`,
+          error.message
+        );
+      }
+
+      console.log(
+        `✏️ Prompt mis à jour pour ${firebaseUid}`
+      );
+
+      return res.json({
+        success: true,
+        businessPrompt:
+          trimmedPrompt,
+      });
+    } catch (error) {
+      console.error(
+        `❌ Erreur /prompt ${firebaseUid}:`,
+        error.message
+      );
+
+      return res.status(500).json({
+        error:
+          'Impossible de mettre à jour les instructions.',
+      });
+    }
+  }
+);
+
 router.post(
   '/toggle-bot',
   verifyFirebaseToken,
