@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const QRCode = require('qrcode');
 
 const {
   verifyFirebaseToken,
@@ -181,23 +182,50 @@ router.post(
           /*
            * IMPORTANT :
            * qr est le QR BRUT de Baileys.
-           * Aucune conversion QR ici.
+           * On le convertit ICI en image (dataURL PNG)
+           * pour que le frontend puisse l'afficher
+           * directement dans une balise <img>.
            */
-          connectionStates.set(
-            firebaseUid,
-            {
-              status: 'qr_ready',
-              qrCode: qr,
-              pairingCode: null,
-              error: null,
-              updatedAt:
-                new Date().toISOString(),
-            }
-          );
+          try {
+            const qrDataUrl =
+              await QRCode.toDataURL(qr, {
+                width: 320,
+                margin: 1,
+              });
 
-          console.log(
-            `✅ QR stocké temporairement pour le dashboard: ${firebaseUid}`
-          );
+            connectionStates.set(
+              firebaseUid,
+              {
+                status: 'qr_ready',
+                qrCode: qrDataUrl,
+                pairingCode: null,
+                error: null,
+                updatedAt:
+                  new Date().toISOString(),
+              }
+            );
+
+            console.log(
+              `✅ QR converti et stocké pour le dashboard: ${firebaseUid}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ Erreur conversion QR ${firebaseUid}:`,
+              error.message
+            );
+
+            connectionStates.set(
+              firebaseUid,
+              {
+                status: 'error',
+                qrCode: null,
+                pairingCode: null,
+                error: 'QR_CONVERSION_ERROR',
+                updatedAt:
+                  new Date().toISOString(),
+              }
+            );
+          }
         }
       };
 
