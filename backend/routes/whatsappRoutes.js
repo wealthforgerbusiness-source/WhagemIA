@@ -201,6 +201,9 @@ router.post(
         }
       };
 
+      // DEBUG log before starting session
+      console.log(`[whatsappRoutes] /connect ${firebaseUid} → starting startWhatsappSession method=${usePairingCode ? 'pairing' : 'qr'} phoneProvided=${!!cleanPhoneNumber}`);
+
       await baileysService.startWhatsappSession(
         firebaseUid,
         user.email,
@@ -236,7 +239,7 @@ router.post(
     } catch (error) {
       console.error(
         `❌ Erreur /connect ${firebaseUid}:`,
-        error
+        error && (error.stack || error)
       );
 
       connectionStates.set(
@@ -245,18 +248,24 @@ router.post(
           status: 'error',
           qrCode: null,
           pairingCode: null,
-          error: error.message,
+          error: error?.message || String(error),
           updatedAt:
             new Date().toISOString(),
         }
       );
 
-      return res.status(500).json({
+      const payload = {
         success: false,
         connected: false,
-        error:
-          'Impossible de démarrer la connexion WhatsApp.',
-      });
+        error: 'Impossible de démarrer la connexion WhatsApp.',
+      };
+
+      if (process.env.DEBUG_WHATSAPP === 'true') {
+        payload.detail = error?.message || String(error);
+        payload.stack = error?.stack || null;
+      }
+
+      return res.status(500).json(payload);
     }
   }
 );
@@ -335,7 +344,7 @@ router.get(
     } catch (error) {
       console.error(
         `❌ Erreur connect-status ${firebaseUid}:`,
-        error.message
+        error && (error.stack || error)
       );
 
       return res.status(500).json({
@@ -379,7 +388,7 @@ router.post(
     } catch (error) {
       console.error(
         `❌ Erreur disconnect ${firebaseUid}:`,
-        error.message
+        error && (error.stack || error)
       );
 
       return res.status(500).json({
