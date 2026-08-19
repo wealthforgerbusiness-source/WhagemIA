@@ -1,249 +1,394 @@
 const express = require('express');
 const router = express.Router();
-const QRCode = require('qrcode');
 
-const { verifyFirebaseToken } = require('../middleware/authMiddleware');
-const baileysService = require('../services/baileysService');
+const {
+  verifyFirebaseToken,
+} = require('../middleware/authMiddleware');
 
-/**
- * POST /api/whatsapp/connect
- *
- * Permet de connecter WhatsApp :
- * - QR code
- * - Code de pairage
- */
-router.post('/connect', verifyFirebaseToken, async (req, res) => {
-  const firebaseUid = req.firebaseUid;
+const baileysService =
+  require('../services/baileysService');
 
-  const {
-    businessPrompt,
-    usePairingCode = false,
-    phoneNumber = null,
-  } = req.body;
+const userModel =
+  require('../models/userModel');
 
-  // ---------------------------------------------------------
-  // VALIDATION
-  // ---------------------------------------------------------
+const sessionModel =
+  require('../models/sessionModel');
 
-  if (
-    !businessPrompt ||
-    typeof businessPrompt !== 'string' ||
-    businessPrompt.trim().length < 10
-  ) {
-    return res.status(400).json({
-      error: "Description de l'entreprise requise (au moins 10 caractères)",
-    });
-  }
+const connectionStates = new Map();
 
-  if (usePairingCode) {
-    if (!phoneNumber || typeof phoneNumber !== 'string') {
-      return res.status(400).json({
-        error: 'Numéro de téléphone requis pour le code de pairage',
-      });
-    }
+router.post(
+  '/connect',
+  verifyFirebaseToken,
+  async (req, res) => {
+    const firebaseUid =
+      req.firebaseUid;
 
-    // WhatsApp attend généralement le numéro sans +
-    const cleanPhoneNumber = phoneNumber.replace(/[^\d]/g, '');
+    try {
+      const {
+        businessPrompt,
+        usePairingCode = false,
+        phoneNumber = null,
+      } = req.body || {};
 
-    if (cleanPhoneNumber.length < 8) {
-      return res.status(400).json({
-        error: 'Numéro de téléphone WhatsApp invalide',
-      });
-    }
-  }
+      if (
+        !businessPrompt ||
+        typeof businessPrompt !== 'string' ||
+        businessPrompt.trim().length < 10
+      ) {
+        return res.status(400).json({
+          error:
+            "Description de l'entreprise requise (au moins 10 caractères)",
+        });
+      }
 
-  // ---------------------------------------------------------
-  // ÉVITER DE LANCER DEUX CONNEXIONS EN MÊME TEMPS
-  // ---------------------------------------------------------
+      if (
+        usePairingCode &&
+        !phoneNumber
+      ) {
+        return res.status(400).json({
+          error:
+            'Numéro de téléphone requis pour le code de pairage',
+        });
+      }
 
-  const existingSocket = baileysService.getActiveSocket(firebaseUid);
+      const user =
+        await userModel.getUserById(
+          firebaseUid
+        );
 
-  if (existingSocket) {
-    console.log(
-      `⚠️ Une session WhatsApp existe déjà pour ${firebaseUid}`
-    );
+      if (!user) {
+        return res.status(404).json({
+          error:
+            'Utilisateur non trouvé',
+        });
+      }
 
-    return res.status(409).json({
-      error: 'Une connexion WhatsApp est déjà en cours ou active.',
-      connected: false,
-      alreadyStarted: true,
-    });
-  }
+      if (
+        user.status === 'expired'
+      ) {
+        return res.status(403).json({
+          error:
+            'Abonnement expiré, impossible de connecter WhatsApp.',
+        });
+      }
 
-  // ---------------------------------------------------------
-  // CONNEXION
-  // ---------------------------------------------------------
+      if (
+        baileysService.isWhatsappConnected(
+          firebaseUid
+        )
+      ) {
+        return res.status(409).json({
+          error:
+            'WhatsApp est déjà connecté.',
+          connected: true,
+        });
+      }
 
-  let responseSent = false;
-  let timeoutId = null;
+      if (
+        baileysService.getActiveSocket(
+          firebaseUid
+        )
+      ) {
+        return res.status(409).json({
+          error:
+            'Une connexion WhatsApp est déjà en cours.',
+          connected: false,
+        });
+      }
 
-  const sendOnce = (statusCode, data) => {
-    if (responseSent || res.headersSent) return;
+      const cleanPhoneNumber =
+        phoneNumber
+          ? String(phoneNumber)
+              .replace(/\D/g, '')
+          : null;
 
-    responseSent = true;
+      if (
+        usePairingCode &&
+        (
+          !cleanPhoneNumber ||
+          cleanPhoneNumber.length < 9
+        )
+      ) {
+        return res.status(400).json({
+          error:
+            'Numéro WhatsApp invalide. Utilisez le numéro avec indicatif pays.',
+        });
+      }
 
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-
-    return res.status(statusCode).json(data);
-  };
-
-  try {
-    console.log(
-      `🚀 Démarrage WhatsApp ${firebaseUid} | méthode=${
-        usePairingCode ? 'pairing' : 'qr'
-      }`
-    );
-
-    await baileysService.startWhatsappSession(
-      firebaseUid,
-      req.userEmail,
-      businessPrompt.trim(),
-
-      /**
-       * CALLBACK QR / PAIRING
-       */
-      async (qr, pairingCode, errorCode) => {
-        try {
-          // ---------------------------------------------------
-          // NUMÉRO DÉJÀ UTILISÉ
-          // ---------------------------------------------------
-
-          if (errorCode === 'NUMBER_ALREADY_USED') {
-            return sendOnce(403, {
-              error:
-                "Ce numéro WhatsApp a déjà utilisé l'essai gratuit sur un autre compte.",
-              code: 'NUMBER_ALREADY_USED',
-            });
-          }
-
-          // ---------------------------------------------------
-          // CODE DE PAIRAGE
-          // ---------------------------------------------------
-
-          if (pairingCode) {
-            console.log(
-              `🔐 Code de pairage envoyé au dashboard: ${firebaseUid}`
-            );
-
-            return sendOnce(200, {
-              pairingCode,
-              method: 'pairing',
-              connected: false,
-            });
-          }
-
-          // ---------------------------------------------------
-          // QR CODE
-          // ---------------------------------------------------
-
-          if (qr) {
-            console.log(
-              `📲 QR reçu pour ${firebaseUid} (${qr.length} caractères)`
-            );
-
-            let qrImage;
-
-            try {
-              /*
-               * Niveau de correction L = moins de données
-               * supplémentaires que H.
-               *
-               * On garde une marge raisonnable pour les QR
-               * générés par les différentes versions de WhatsApp.
-               */
-              qrImage = await QRCode.toDataURL(qr, {
-                errorCorrectionLevel: 'L',
-                margin: 2,
-                width: 400,
-              });
-            } catch (qrError) {
-              console.error(
-                `❌ Erreur génération image QR ${firebaseUid}:`,
-                qrError.message
-              );
-
-              /*
-               * Très important :
-               * on ne renvoie PAS une fausse connexion.
-               */
-              return sendOnce(500, {
-                error:
-                  "Impossible de générer l'image du QR WhatsApp.",
-                code: 'QR_GENERATION_ERROR',
-              });
-            }
-
-            console.log(
-              `✅ QR envoyé au dashboard: ${firebaseUid}`
-            );
-
-            return sendOnce(200, {
-              qrCode: qrImage,
-              method: 'qr',
-              connected: false,
-            });
-          }
-        } catch (callbackError) {
-          console.error(
-            `❌ Erreur callback WhatsApp ${firebaseUid}:`,
-            callbackError.message
-          );
-
-          return sendOnce(500, {
-            error: 'Erreur lors de la préparation de la connexion WhatsApp.',
-          });
+      connectionStates.set(
+        firebaseUid,
+        {
+          status: 'connecting',
+          qrCode: null,
+          pairingCode: null,
+          error: null,
+          updatedAt:
+            new Date().toISOString(),
         }
-      },
-
-      usePairingCode,
-
-      usePairingCode
-        ? phoneNumber.replace(/[^\d]/g, '')
-        : null
-    );
-
-    // ---------------------------------------------------------
-    // TIMEOUT
-    // ---------------------------------------------------------
-
-    timeoutId = setTimeout(() => {
-      if (responseSent || res.headersSent) return;
-
-      console.warn(
-        `⏱️ Timeout connexion WhatsApp ${firebaseUid}`
       );
 
-      responseSent = true;
+      const onQrCode = async (
+        qr,
+        pairingCode,
+        errorCode
+      ) => {
+        if (errorCode) {
+          console.error(
+            `❌ Connexion WhatsApp ${firebaseUid}: ${errorCode}`
+          );
 
-      return res.status(408).json({
-        error:
-          "WhatsApp n'a pas envoyé de QR ou de code de pairage dans le délai prévu.",
-        code: 'CONNECTION_TIMEOUT',
+          connectionStates.set(
+            firebaseUid,
+            {
+              status: 'error',
+              qrCode: null,
+              pairingCode: null,
+              error: errorCode,
+              updatedAt:
+                new Date().toISOString(),
+            }
+          );
+
+          return;
+        }
+
+        if (pairingCode) {
+          console.log(
+            `🔐 Code de pairage reçu: ${firebaseUid}`
+          );
+
+          connectionStates.set(
+            firebaseUid,
+            {
+              status:
+                'pairing_ready',
+              qrCode: null,
+              pairingCode,
+              error: null,
+              updatedAt:
+                new Date().toISOString(),
+            }
+          );
+
+          return;
+        }
+
+        if (qr) {
+          console.log(
+            `📲 QR reçu: ${firebaseUid} (${qr.length} caractères)`
+          );
+
+          /*
+           * IMPORTANT :
+           * qr est le QR BRUT de Baileys.
+           * Aucune conversion QR ici.
+           */
+          connectionStates.set(
+            firebaseUid,
+            {
+              status: 'qr_ready',
+              qrCode: qr,
+              pairingCode: null,
+              error: null,
+              updatedAt:
+                new Date().toISOString(),
+            }
+          );
+
+          console.log(
+            `✅ QR stocké temporairement pour le dashboard: ${firebaseUid}`
+          );
+        }
+      };
+
+      await baileysService.startWhatsappSession(
+        firebaseUid,
+        user.email,
+        businessPrompt.trim(),
+        onQrCode,
+        usePairingCode
+          ? 'pairing'
+          : 'qr',
+        cleanPhoneNumber
+      );
+
+      await userModel.updateUser(
+        firebaseUid,
+        {
+          businessPrompt:
+            businessPrompt.trim(),
+        }
+      );
+
+      console.log(
+        `🚀 Connexion WhatsApp lancée pour ${firebaseUid}`
+      );
+
+      return res.json({
+        success: true,
+        status: 'connecting',
         connected: false,
+        method:
+          usePairingCode
+            ? 'pairing'
+            : 'qr',
       });
-    }, 30000);
+    } catch (error) {
+      console.error(
+        `❌ Erreur /connect ${firebaseUid}:`,
+        error
+      );
 
-  } catch (error) {
-    console.error(
-      `❌ Erreur connexion WhatsApp ${firebaseUid}:`,
-      error
-    );
+      connectionStates.set(
+        firebaseUid,
+        {
+          status: 'error',
+          qrCode: null,
+          pairingCode: null,
+          error: error.message,
+          updatedAt:
+            new Date().toISOString(),
+        }
+      );
 
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-
-    if (!res.headersSent) {
       return res.status(500).json({
-        error: 'Erreur lors de la connexion WhatsApp',
+        success: false,
         connected: false,
+        error:
+          'Impossible de démarrer la connexion WhatsApp.',
       });
     }
   }
-});
+);
+
+router.get(
+  '/connect-status',
+  verifyFirebaseToken,
+  async (req, res) => {
+    const firebaseUid =
+      req.firebaseUid;
+
+    try {
+      const connected =
+        baileysService.isWhatsappConnected(
+          firebaseUid
+        );
+
+      if (connected) {
+        return res.json({
+          success: true,
+          status: 'connected',
+          connected: true,
+          qrCode: null,
+          pairingCode: null,
+          error: null,
+        });
+      }
+
+      const session =
+        await sessionModel.getSessionStatus(
+          firebaseUid
+        );
+
+      if (
+        session?.connected === true
+      ) {
+        return res.json({
+          success: true,
+          status: 'connected',
+          connected: true,
+          qrCode: null,
+          pairingCode: null,
+          error: null,
+        });
+      }
+
+      const state =
+        connectionStates.get(
+          firebaseUid
+        );
+
+      if (!state) {
+        return res.json({
+          success: true,
+          status: 'idle',
+          connected: false,
+          qrCode: null,
+          pairingCode: null,
+          error: null,
+        });
+      }
+
+      return res.json({
+        success: true,
+        status:
+          state.status ||
+          'connecting',
+        connected: false,
+        qrCode:
+          state.qrCode || null,
+        pairingCode:
+          state.pairingCode || null,
+        error:
+          state.error || null,
+      });
+    } catch (error) {
+      console.error(
+        `❌ Erreur connect-status ${firebaseUid}:`,
+        error.message
+      );
+
+      return res.status(500).json({
+        success: false,
+        connected: false,
+        status: 'error',
+        error:
+          'Impossible de récupérer le statut WhatsApp.',
+      });
+    }
+  }
+);
+
+router.post(
+  '/disconnect',
+  verifyFirebaseToken,
+  async (req, res) => {
+    const firebaseUid =
+      req.firebaseUid;
+
+    try {
+      await baileysService.stopWhatsappSession(
+        firebaseUid
+      );
+
+      connectionStates.delete(
+        firebaseUid
+      );
+
+      await sessionModel.saveSessionStatus(
+        firebaseUid,
+        {
+          connected: false,
+        }
+      );
+
+      return res.json({
+        success: true,
+        connected: false,
+      });
+    } catch (error) {
+      console.error(
+        `❌ Erreur disconnect ${firebaseUid}:`,
+        error.message
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          'Impossible de déconnecter WhatsApp.',
+      });
+    }
+  }
+);
 
 module.exports = router;
